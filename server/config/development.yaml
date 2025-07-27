@@ -1,0 +1,51 @@
+# Development configuration for MCP-MQTT Bridge
+# Optimized for local development and testing
+
+mqtt:
+  broker: localhost
+  port: 1883
+  client_id: mcp_bridge_dev
+  keep_alive: 30
+  qos: 1
+
+database:
+  path: ./data/bridge_dev.db
+  retention_days: 7  # Shorter retention for development
+  cleanup_interval_hours: 1
+  connection_timeout: 10
+
+monitoring:
+  device_timeout_minutes: 2  # Faster timeout for testing
+  heartbeat_interval_seconds: 15
+  metrics_interval_seconds: 30
+  log_level: DEBUG  # Verbose logging for development
+  log_file: ./logs/bridge_dev.log
+  max_errors_per_device: 50
+
+security:
+  enable_tls: false
+  verify_certificates: false  # Relaxed for development
+
+mcp:
+  server_name: "MCP-MQTT Bridge (Development)"
+  server_version: "1.0.0-dev"
+  max_history_entries: 500
+  enable_device_discovery: true
+  enable_real_time_updates: true
+
+performance:
+  max_connections: 5
+  connection_pool_size: 2
+  max_message_size: 512
+  message_buffer_size: 50
+  batch_processing: false  # Disabled for easier debugging
+  gc_interval_seconds: 60
+  max_memory_mb: 256
+
+# Development-specific settings
+development:
+  auto_reload: true
+  debug_mqtt_messages: true
+  mock_devices: true
+  test_data_generation: true
+  profiling_enabled: false 

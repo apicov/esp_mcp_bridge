@@ -1,0 +1,86 @@
+# Default configuration for MCP-MQTT Bridge
+# This configuration provides sensible defaults for most deployments
+
+mqtt:
+  # MQTT broker connection settings
+  broker: localhost
+  port: 1883
+  
+  # Authentication (optional)
+  username: null
+  password: null
+  
+  # Client configuration
+  client_id: mcp_bridge_default
+  keep_alive: 60
+  qos: 1
+  
+  # Topic configuration
+  topics:
+    device_prefix: "devices"
+    sensor_suffix: "sensors"
+    actuator_suffix: "actuators"
+    status_suffix: "status"
+    command_suffix: "cmd"
+
+database:
+  # SQLite database configuration
+  path: ./data/bridge.db
+  
+  # Data retention settings
+  retention_days: 30
+  cleanup_interval_hours: 24
+  
+  # Performance settings
+  connection_timeout: 30
+  journal_mode: WAL
+  synchronous: NORMAL
+
+monitoring:
+  # Device monitoring settings
+  device_timeout_minutes: 5
+  heartbeat_interval_seconds: 30
+  
+  # Metrics and logging
+  metrics_interval_seconds: 60
+  log_level: INFO
+  log_file: ./logs/bridge.log
+  
+  # Error handling
+  max_errors_per_device: 100
+  error_reset_threshold_hours: 24
+
+security:
+  # TLS/SSL settings
+  enable_tls: false
+  ca_cert_path: null
+  cert_path: null
+  key_path: null
+  
+  # Certificate verification
+  verify_certificates: true
+  tls_version: "1.2"
+
+mcp:
+  # Model Context Protocol settings
+  server_name: "MCP-MQTT Bridge"
+  server_version: "1.0.0"
+  
+  # Tool configuration
+  max_history_entries: 1000
+  enable_device_discovery: true
+  enable_real_time_updates: true
+
+performance:
+  # Connection pooling
+  max_connections: 10
+  connection_pool_size: 5
+  
+  # Message handling
+  max_message_size: 1024
+  message_buffer_size: 100
+  batch_processing: true
+  
+  # Memory management
+  gc_interval_seconds: 300
+  max_memory_mb: 512 

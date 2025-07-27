@@ -1,0 +1,59 @@
+# Development dependencies for MCP-MQTT Bridge
+# Install with: pip install -r requirements-dev.txt
+
+# Testing framework and tools
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+pytest-xdist>=3.3.0  # Parallel test execution
+
+# Code quality and linting
+black>=23.0.0         # Code formatter
+isort>=5.12.0         # Import sorter
+flake8>=6.0.0         # Linter
+pylint>=2.17.0        # Advanced linter
+mypy>=1.5.0           # Type checker
+
+# Documentation tools
+sphinx>=7.1.0         # Documentation generator
+sphinx-rtd-theme>=1.3.0  # ReadTheDocs theme
+myst-parser>=2.0.0    # Markdown support for Sphinx
+
+# Development tools
+pre-commit>=3.4.0     # Git hooks
+bump2version>=1.0.1   # Version bumping
+watchdog>=3.0.0       # File watching for auto-reload
+
+# Performance and profiling
+memory-profiler>=0.61.0
+line-profiler>=4.1.0
+py-spy>=0.3.14
+
+# Security scanning
+bandit>=1.7.5         # Security linter
+safety>=2.3.0         # Dependency vulnerability scanner
+
+# Additional testing utilities
+factory-boy>=3.3.0    # Test data generation
+freezegun>=1.2.2      # Time mocking
+responses>=0.23.0     # HTTP request mocking
+faker>=19.6.0         # Fake data generation
+
+# Web development (for dashboard example)
+flask>=2.3.0
+flask-cors>=4.0.0
+requests>=2.31.0
+
+# Database tools
+sqlite-utils>=3.34.0  # SQLite utilities
+
+# Jupyter notebooks (for data analysis examples)
+jupyter>=1.0.0
+matplotlib>=3.7.0
+pandas>=2.0.0
+seaborn>=0.12.0
+
+# Type stubs for better type checking
+types-requests>=2.31.0
+types-PyYAML>=6.0.0 
