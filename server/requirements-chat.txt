@@ -1,0 +1,13 @@
+# Chat Interface Requirements
+# Install with: pip install -r requirements-chat.txt
+
+# OpenAI API client
+openai>=1.0.0
+
+# Model Context Protocol
+mcp>=0.1.0
+
+# Core dependencies (if not already installed)
+asyncio-mqtt>=0.11.0
+paho-mqtt>=1.6.0
+pyyaml>=6.0 

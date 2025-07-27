@@ -21,11 +21,16 @@ server/
 ├── examples/
 │   ├── basic_client.py         # Simple MCP client
 │   ├── dashboard.py            # Web dashboard example
-│   └── custom_tools.py         # Custom MCP tools
+│   ├── custom_tools.py         # Custom MCP tools
+│   ├── mock_esp32_device.py    # Mock ESP32 device simulator
+│   └── mock_device_config.yaml # Mock device configurations
 ├── scripts/
 │   ├── setup_dev.py            # Development setup
 │   ├── migrate_db.py           # Database migrations
 │   └── health_check.py         # System health check
+├── chat_with_devices.py        # OpenAI chat interface
+├── start_chat_demo.py          # Complete demo launcher
+├── CHAT_DEMO_README.md         # Chat demo documentation
 └── config/
     ├── default.yaml            # Default configuration
     ├── development.yaml        # Development settings
@@ -189,6 +194,29 @@ python examples/mock_esp32_device.py --broker mqtt.example.com --port 1883
 # Start with configuration file
 python examples/mock_esp32_device.py --config examples/mock_device_config.yaml
 ```
+
+### **💬 Chat Demo with OpenAI**
+
+Experience the full power of AI-controlled IoT with our interactive chat demo:
+
+```bash
+# Install chat requirements
+pip install -r requirements-chat.txt
+
+# Set your OpenAI API key
+export OPENAI_API_KEY="your-api-key-here"
+
+# Start everything with one command!
+python start_chat_demo.py
+```
+
+This creates a complete end-to-end system where you can:
+- **Chat naturally** with GPT-4 about your devices
+- **Control devices** by voice: *"Turn on the kitchen LED"*
+- **Read sensors** by asking: *"What's the temperature in the bedroom?"*
+- **Get intelligent responses** that understand your home automation
+
+See `CHAT_DEMO_README.md` for complete instructions and example conversations!
 
 ### **Mock Device Features**
 - **Realistic Sensor Simulation**: Temperature, humidity, light, motion, air quality, etc.
