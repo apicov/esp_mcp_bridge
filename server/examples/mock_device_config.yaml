@@ -1,0 +1,309 @@
+# Mock ESP32 Device Configuration
+# Configuration file for simulating multiple ESP32 devices
+
+mqtt:
+  broker: localhost
+  port: 1883
+  username: null  # Set if broker requires authentication
+  password: null
+
+devices:
+  - device_id: esp32_kitchen
+    device_type: ESP32
+    firmware_version: 1.2.0
+    location: kitchen
+    sensors:
+      - name: temperature
+        sensor_type: temperature
+        unit: °C
+        min_value: 15.0
+        max_value: 35.0
+        base_value: 22.0
+        variation: 1.5
+        update_interval: 10.0
+        drift_rate: 0.01
+      
+      - name: humidity
+        sensor_type: humidity
+        unit: "%"
+        min_value: 30.0
+        max_value: 80.0
+        base_value: 55.0
+        variation: 5.0
+        update_interval: 15.0
+        drift_rate: 0.02
+      
+      - name: gas
+        sensor_type: gas
+        unit: ppm
+        min_value: 0.0
+        max_value: 1000.0
+        base_value: 50.0
+        variation: 10.0
+        update_interval: 30.0
+        drift_rate: 0.05
+    
+    actuators:
+      - name: led
+        actuator_type: led
+        initial_state: off
+        supported_actions: [on, off, toggle, blink]
+      
+      - name: exhaust_fan
+        actuator_type: fan
+        initial_state: off
+        supported_actions: [on, off, toggle, speed_low, speed_high]
+
+  - device_id: esp32_living_room
+    device_type: ESP32
+    firmware_version: 1.1.5
+    location: living_room
+    sensors:
+      - name: temperature
+        sensor_type: temperature
+        unit: °C
+        min_value: 16.0
+        max_value: 30.0
+        base_value: 21.0
+        variation: 1.0
+        update_interval: 12.0
+        drift_rate: 0.008
+      
+      - name: humidity
+        sensor_type: humidity
+        unit: "%"
+        min_value: 40.0
+        max_value: 70.0
+        base_value: 50.0
+        variation: 3.0
+        update_interval: 18.0
+        drift_rate: 0.015
+      
+      - name: light
+        sensor_type: light
+        unit: lux
+        min_value: 0.0
+        max_value: 1000.0
+        base_value: 300.0
+        variation: 50.0
+        update_interval: 20.0
+        drift_rate: 0.1
+      
+      - name: motion
+        sensor_type: motion
+        unit: bool
+        min_value: 0.0
+        max_value: 1.0
+        base_value: 0.1  # 10% chance of motion
+        variation: 0.2
+        update_interval: 5.0
+        drift_rate: 0.0
+    
+    actuators:
+      - name: led
+        actuator_type: led
+        initial_state: off
+        supported_actions: [on, off, toggle, dim_low, dim_high]
+      
+      - name: relay
+        actuator_type: relay
+        initial_state: off
+        supported_actions: [on, off, toggle]
+
+  - device_id: esp32_bedroom
+    device_type: ESP32-S3
+    firmware_version: 1.3.1
+    location: bedroom
+    sensors:
+      - name: temperature
+        sensor_type: temperature
+        unit: °C
+        min_value: 18.0
+        max_value: 28.0
+        base_value: 20.0
+        variation: 0.8
+        update_interval: 15.0
+        drift_rate: 0.005
+      
+      - name: humidity
+        sensor_type: humidity
+        unit: "%"
+        min_value: 35.0
+        max_value: 65.0
+        base_value: 45.0
+        variation: 4.0
+        update_interval: 20.0
+        drift_rate: 0.01
+      
+      - name: noise
+        sensor_type: sound
+        unit: dB
+        min_value: 30.0
+        max_value: 80.0
+        base_value: 40.0
+        variation: 8.0
+        update_interval: 10.0
+        drift_rate: 0.2
+      
+      - name: air_quality
+        sensor_type: air_quality
+        unit: AQI
+        min_value: 0.0
+        max_value: 300.0
+        base_value: 50.0
+        variation: 15.0
+        update_interval: 60.0
+        drift_rate: 0.5
+    
+    actuators:
+      - name: led
+        actuator_type: led
+        initial_state: off
+        supported_actions: [on, off, toggle, dim]
+      
+      - name: heater
+        actuator_type: heater
+        initial_state: off
+        supported_actions: [on, off, toggle, temp_low, temp_medium, temp_high]
+      
+      - name: air_purifier
+        actuator_type: purifier
+        initial_state: off
+        supported_actions: [on, off, toggle, auto, manual]
+
+  - device_id: esp32_garage
+    device_type: ESP32-C3
+    firmware_version: 1.0.8
+    location: garage
+    sensors:
+      - name: temperature
+        sensor_type: temperature
+        unit: °C
+        min_value: 5.0
+        max_value: 40.0
+        base_value: 15.0
+        variation: 3.0
+        update_interval: 30.0
+        drift_rate: 0.02
+      
+      - name: humidity
+        sensor_type: humidity
+        unit: "%"
+        min_value: 20.0
+        max_value: 90.0
+        base_value: 60.0
+        variation: 8.0
+        update_interval: 25.0
+        drift_rate: 0.03
+      
+      - name: distance
+        sensor_type: ultrasonic
+        unit: cm
+        min_value: 2.0
+        max_value: 400.0
+        base_value: 200.0
+        variation: 20.0
+        update_interval: 5.0
+        drift_rate: 0.1
+      
+      - name: vibration
+        sensor_type: accelerometer
+        unit: g
+        min_value: 0.0
+        max_value: 2.0
+        base_value: 0.02
+        variation: 0.1
+        update_interval: 8.0
+        drift_rate: 0.001
+    
+    actuators:
+      - name: led
+        actuator_type: led
+        initial_state: off
+        supported_actions: [on, off, toggle]
+      
+      - name: garage_door
+        actuator_type: motor
+        initial_state: closed
+        supported_actions: [open, close, stop]
+      
+      - name: security_light
+        actuator_type: light
+        initial_state: off
+        supported_actions: [on, off, toggle, motion_detect]
+
+  - device_id: esp32_garden
+    device_type: ESP32
+    firmware_version: 1.1.2
+    location: garden
+    sensors:
+      - name: temperature
+        sensor_type: temperature
+        unit: °C
+        min_value: -5.0
+        max_value: 45.0
+        base_value: 18.0
+        variation: 4.0
+        update_interval: 20.0
+        drift_rate: 0.03
+      
+      - name: humidity
+        sensor_type: humidity
+        unit: "%"
+        min_value: 10.0
+        max_value: 95.0
+        base_value: 70.0
+        variation: 10.0
+        update_interval: 25.0
+        drift_rate: 0.04
+      
+      - name: soil_moisture
+        sensor_type: moisture
+        unit: "%"
+        min_value: 0.0
+        max_value: 100.0
+        base_value: 45.0
+        variation: 8.0
+        update_interval: 300.0  # 5 minutes
+        drift_rate: 0.1
+      
+      - name: light_intensity
+        sensor_type: light
+        unit: lux
+        min_value: 0.0
+        max_value: 50000.0
+        base_value: 10000.0
+        variation: 5000.0
+        update_interval: 60.0
+        drift_rate: 1000.0
+      
+      - name: wind_speed
+        sensor_type: anemometer
+        unit: km/h
+        min_value: 0.0
+        max_value: 50.0
+        base_value: 5.0
+        variation: 3.0
+        update_interval: 15.0
+        drift_rate: 0.2
+    
+    actuators:
+      - name: led
+        actuator_type: led
+        initial_state: off
+        supported_actions: [on, off, toggle]
+      
+      - name: water_pump
+        actuator_type: pump
+        initial_state: off
+        supported_actions: [on, off, toggle, timer_30min, timer_1hour]
+      
+      - name: sprinkler
+        actuator_type: valve
+        initial_state: closed
+        supported_actions: [open, close, toggle]
+      
+      - name: grow_light
+        actuator_type: light
+        initial_state: off
+        supported_actions: [on, off, toggle, schedule_dawn, schedule_dusk] 

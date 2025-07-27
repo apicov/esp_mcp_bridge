@@ -170,6 +170,69 @@ pytest --cov=mcp_mqtt_bridge --cov-report=html
 open htmlcov/index.html
 ```
 
+## 🧪 **Testing with Mock Devices**
+
+### **Mock ESP32 Device Simulator**
+
+For testing without physical hardware, use the included mock ESP32 device simulator:
+
+```bash
+# Start mock devices with default configuration (3 devices)
+python examples/mock_esp32_device.py
+
+# Start with custom number of devices
+python examples/mock_esp32_device.py --devices 5
+
+# Start with custom MQTT broker
+python examples/mock_esp32_device.py --broker mqtt.example.com --port 1883
+
+# Start with configuration file
+python examples/mock_esp32_device.py --config examples/mock_device_config.yaml
+```
+
+### **Mock Device Features**
+- **Realistic Sensor Simulation**: Temperature, humidity, light, motion, air quality, etc.
+- **Actuator Control**: LEDs, relays, pumps, motors with state feedback
+- **Error Simulation**: Occasional sensor errors and connection issues
+- **Configurable Behavior**: YAML-based device configuration
+- **Multiple Device Types**: Kitchen, living room, bedroom, garage, garden scenarios
+- **MQTT Topic Compatibility**: Matches firmware MQTT topic structure
+
+### **Testing Scenarios**
+
+Run the comprehensive test suite:
+
+```bash
+python examples/test_with_mock_devices.py
+```
+
+**Manual Testing Steps:**
+1. Start mosquitto MQTT broker: `mosquitto`
+2. Start mock devices: `python examples/mock_esp32_device.py`
+3. Start MCP bridge: `python -m mcp_mqtt_bridge`
+4. Connect MCP client and test commands
+
+**Device Configuration (mock_device_config.yaml):**
+```yaml
+mqtt:
+  broker: localhost
+  port: 1883
+
+devices:
+  - device_id: esp32_kitchen
+    location: kitchen
+    sensors:
+      - name: temperature
+        sensor_type: temperature
+        unit: °C
+        base_value: 22.0
+        variation: 1.5
+    actuators:
+      - name: led
+        actuator_type: led
+        supported_actions: [on, off, toggle]
+```
+
 ## 🔧 **Configuration**
 
 ### **Environment Variables**
