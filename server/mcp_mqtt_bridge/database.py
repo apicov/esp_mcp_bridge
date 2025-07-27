@@ -3,6 +3,7 @@ Database management for the MCP-MQTT bridge.
 """
 
 import sqlite3
+import json
 import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
@@ -87,6 +88,40 @@ class DatabaseManager:
                         last_activity DATETIME,
                         uptime_start DATETIME,
                         last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+                    );
+                    
+                    CREATE TABLE IF NOT EXISTS devices (
+                        device_id TEXT PRIMARY KEY,
+                        device_type TEXT,
+                        sensors TEXT,
+                        actuators TEXT,
+                        firmware_version TEXT,
+                        location TEXT,
+                        status TEXT DEFAULT 'offline',
+                        last_seen DATETIME,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    );
+                    
+                    CREATE TABLE IF NOT EXISTS sensor_data (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        device_id TEXT NOT NULL,
+                        sensor_type TEXT NOT NULL,
+                        value REAL NOT NULL,
+                        unit TEXT,
+                        timestamp DATETIME NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (device_id) REFERENCES devices(device_id)
+                    );
+                    
+                    CREATE TABLE IF NOT EXISTS device_errors (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        device_id TEXT NOT NULL,
+                        error_type TEXT NOT NULL,
+                        message TEXT,
+                        severity INTEGER DEFAULT 1,
+                        timestamp DATETIME NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (device_id) REFERENCES devices(device_id)
                     );
                 """)
             logger.info("Database initialized successfully")
@@ -292,18 +327,41 @@ class DatabaseManager:
                 events_deleted = result.rowcount
                 
                 # Clean up old actuator states (keep only latest for each device/actuator)
-                conn.execute("""
+                result = conn.execute("""
                     DELETE FROM actuator_states 
                     WHERE id NOT IN (
                         SELECT MAX(id) FROM actuator_states 
                         GROUP BY device_id, actuator_type
                     ) AND timestamp < ?
                 """, (cutoff_date,))
+                states_deleted = result.rowcount
                 
-                logger.info(f"Cleaned up {sensor_deleted} sensor readings and {events_deleted} events")
+                # Also clean up test tables if they exist
+                total_deleted = sensor_deleted + events_deleted + states_deleted
+                try:
+                    # Clean up old sensor_data (test table)
+                    result = conn.execute("""
+                        DELETE FROM sensor_data 
+                        WHERE timestamp < ?
+                    """, (cutoff_date.isoformat(),))
+                    total_deleted += result.rowcount
+                    
+                    # Clean up old device_errors (test table)
+                    result = conn.execute("""
+                        DELETE FROM device_errors 
+                        WHERE timestamp < ?
+                    """, (cutoff_date.isoformat(),))
+                    total_deleted += result.rowcount
+                except sqlite3.OperationalError:
+                    # Tables don't exist, that's ok
+                    pass
+                
+                logger.info(f"Cleaned up {total_deleted} total records")
+                return total_deleted
                 
         except Exception as e:
             logger.error(f"Failed to cleanup old data: {e}")
+            return 0
     
     def get_database_stats(self) -> Dict[str, Any]:
         """Get database statistics"""
@@ -330,3 +388,225 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Failed to get database stats: {e}")
             return {} 
+
+    def close(self):
+        """Close database connection (no-op for SQLite)"""
+        pass
+    
+    # Additional methods expected by tests
+    def register_device(self, device_data: Dict[str, Any]):
+        """Register a new device"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT OR REPLACE INTO devices 
+                    (device_id, device_type, sensors, actuators, firmware_version, location, status, last_seen)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    device_data["device_id"],
+                    device_data.get("device_type", ""),
+                    json.dumps(device_data.get("sensors", [])),
+                    json.dumps(device_data.get("actuators", [])),
+                    device_data.get("firmware_version", ""),
+                    device_data.get("location", ""),
+                    device_data.get("status", "offline"),
+                    datetime.now().isoformat()
+                ))
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to register device: {e}")
+            raise
+    
+    def get_device(self, device_id: str) -> Optional[Dict[str, Any]]:
+        """Get device information"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT device_id, device_type, sensors, actuators, firmware_version, 
+                           location, status, last_seen, created_at
+                    FROM devices WHERE device_id = ?
+                """, (device_id,))
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        "device_id": row[0],
+                        "device_type": row[1],
+                        "sensors": json.loads(row[2]) if row[2] else [],
+                        "actuators": json.loads(row[3]) if row[3] else [],
+                        "firmware_version": row[4],
+                        "location": row[5],
+                        "status": row[6],
+                        "last_seen": row[7],
+                        "created_at": row[8]
+                    }
+                return None
+        except Exception as e:
+            logger.error(f"Failed to get device: {e}")
+            return None
+    
+    def update_device_status(self, device_id: str, status: str):
+        """Update device status"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE devices SET status = ?, last_seen = ? WHERE device_id = ?
+                """, (status, datetime.now().isoformat(), device_id))
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to update device status: {e}")
+            raise
+    
+    def store_sensor_data(self, sensor_data: Dict[str, Any]):
+        """Store sensor data"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO sensor_data (device_id, sensor_type, value, unit, timestamp)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    sensor_data["device_id"],
+                    sensor_data["sensor_type"],
+                    sensor_data["value"],
+                    sensor_data.get("unit", ""),
+                    sensor_data["timestamp"]
+                ))
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to store sensor data: {e}")
+            raise
+    
+    def get_sensor_data(self, device_id: str, sensor_type: str, history_minutes: int) -> List[Dict[str, Any]]:
+        """Get sensor data with history"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                since_time = (datetime.now() - timedelta(minutes=history_minutes)).isoformat()
+                cursor.execute("""
+                    SELECT device_id, sensor_type, value, unit, timestamp
+                    FROM sensor_data 
+                    WHERE device_id = ? AND sensor_type = ? AND timestamp > ?
+                    ORDER BY timestamp DESC
+                """, (device_id, sensor_type, since_time))
+                rows = cursor.fetchall()
+                return [
+                    {
+                        "device_id": row[0],
+                        "sensor_type": row[1],
+                        "value": row[2],
+                        "unit": row[3],
+                        "timestamp": row[4]
+                    }
+                    for row in rows
+                ]
+        except Exception as e:
+            logger.error(f"Failed to get sensor data: {e}")
+            return []
+    
+    def log_device_error(self, error_data: Dict[str, Any]):
+        """Log a device error"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO device_errors (device_id, error_type, message, severity, timestamp)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    error_data["device_id"],
+                    error_data["error_type"],
+                    error_data["message"],
+                    error_data.get("severity", 1),
+                    error_data["timestamp"]
+                ))
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to log device error: {e}")
+            raise
+    
+    def get_device_errors(self, device_id: str, hours: int = 24) -> List[Dict[str, Any]]:
+        """Get device errors"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                since_time = (datetime.now() - timedelta(hours=hours)).isoformat()
+                cursor.execute("""
+                    SELECT device_id, error_type, message, severity, timestamp
+                    FROM device_errors 
+                    WHERE device_id = ? AND timestamp > ?
+                    ORDER BY timestamp DESC
+                """, (device_id, since_time))
+                rows = cursor.fetchall()
+                return [
+                    {
+                        "device_id": row[0],
+                        "error_type": row[1],
+                        "message": row[2],
+                        "severity": row[3],
+                        "timestamp": row[4]
+                    }
+                    for row in rows
+                ]
+        except Exception as e:
+            logger.error(f"Failed to get device errors: {e}")
+            return []
+    
+    def get_all_devices(self) -> List[Dict[str, Any]]:
+        """Get all devices"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT device_id, device_type, sensors, actuators, firmware_version, 
+                           location, status, last_seen, created_at
+                    FROM devices
+                """)
+                rows = cursor.fetchall()
+                return [
+                    {
+                        "device_id": row[0],
+                        "device_type": row[1],
+                        "sensors": json.loads(row[2]) if row[2] else [],
+                        "actuators": json.loads(row[3]) if row[3] else [],
+                        "firmware_version": row[4],
+                        "location": row[5],
+                        "status": row[6],
+                        "last_seen": row[7],
+                        "created_at": row[8]
+                    }
+                    for row in rows
+                ]
+        except Exception as e:
+            logger.error(f"Failed to get all devices: {e}")
+            return []
+    
+    def get_online_devices(self) -> List[Dict[str, Any]]:
+        """Get only online devices"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT device_id, device_type, sensors, actuators, firmware_version, 
+                           location, status, last_seen, created_at
+                    FROM devices WHERE status = 'online'
+                """)
+                rows = cursor.fetchall()
+                return [
+                    {
+                        "device_id": row[0],
+                        "device_type": row[1],
+                        "sensors": json.loads(row[2]) if row[2] else [],
+                        "actuators": json.loads(row[3]) if row[3] else [],
+                        "firmware_version": row[4],
+                        "location": row[5],
+                        "status": row[6],
+                        "last_seen": row[7],
+                        "created_at": row[8]
+                    }
+                    for row in rows
+                ]
+        except Exception as e:
+            logger.error(f"Failed to get online devices: {e}")
+            return [] 

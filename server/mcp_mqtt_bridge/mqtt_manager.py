@@ -20,7 +20,7 @@ class MQTTManager:
         self.broker = broker
         self.port = port
         self.client_id = client_id
-        self.client = mqtt.Client(client_id=client_id)
+        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id)
         
         if username and password:
             self.client.username_pw_set(username, password)

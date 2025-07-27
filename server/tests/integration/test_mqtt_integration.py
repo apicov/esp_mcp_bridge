@@ -2,6 +2,7 @@
 Integration tests for MQTT functionality.
 """
 import pytest
+import pytest_asyncio
 import asyncio
 import json
 import time
@@ -14,7 +15,7 @@ from mcp_mqtt_bridge.mqtt_manager import MQTTManager
 class TestMQTTIntegration:
     """Integration tests for MQTT manager."""
     
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def mqtt_manager(self, mqtt_test_config):
         """Create MQTT manager for testing."""
         manager = MQTTManager(

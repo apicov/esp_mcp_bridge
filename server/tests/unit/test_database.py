@@ -16,14 +16,12 @@ class TestDatabaseManager:
     def db_manager(self, temp_db_path):
         """Create a DatabaseManager instance for testing."""
         manager = DatabaseManager(db_path=temp_db_path)
-        manager.initialize()
         yield manager
         manager.close()
     
     def test_initialization(self, temp_db_path):
         """Test database initialization."""
         manager = DatabaseManager(db_path=temp_db_path)
-        manager.initialize()
         
         # Check that tables exist
         with sqlite3.connect(temp_db_path) as conn:
