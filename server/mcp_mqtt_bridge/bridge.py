@@ -182,28 +182,44 @@ class MCPMQTTBridge:
             
             device_id = parts[1]
             
-            logger.info(f"Device capabilities from {device_id}: {payload}")
+            logger.info(f"Processing device capabilities from {device_id}")
+            logger.debug(f"Full payload: {payload}")
             
             # Update device capabilities
             self.device_manager.update_device_capabilities(device_id, payload)
+            logger.debug(f"Updated device manager for {device_id}")
             
             # Store in database
             self.database.update_device_capabilities(device_id, payload)
+            logger.debug(f"Stored capabilities in database for {device_id}")
             
             # Also register the device in the main devices table
+            # Convert sensor/actuator objects to simple lists
+            sensors = payload.get("sensors", [])
+            if sensors and isinstance(sensors[0], dict):
+                sensors = [s.get("name", s.get("type", "unknown")) for s in sensors]
+            
+            actuators = payload.get("actuators", [])
+            if actuators and isinstance(actuators[0], dict):
+                actuators = [a.get("name", a.get("type", "unknown")) for a in actuators]
+            
             device_data = {
                 "device_id": device_id,
                 "device_type": payload.get("device_type", "esp32"),
-                "sensors": payload.get("sensors", []),
-                "actuators": payload.get("actuators", []),
+                "sensors": sensors,
+                "actuators": actuators,
                 "firmware_version": payload.get("firmware_version", ""),
                 "location": payload.get("location", ""),
                 "status": "online"
             }
+            logger.debug(f"Registering device with data: {device_data}")
             self.database.register_device(device_data)
+            logger.info(f"Successfully registered device {device_id} in database")
             
         except Exception as e:
             logger.error(f"Error handling device capabilities: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
     
     def _handle_device_status(self, topic: str, payload: Dict[str, Any]):
         """Handle device status updates"""
