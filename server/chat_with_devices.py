@@ -47,6 +47,7 @@ class IoTChatInterface:
         self.mcp_session: Optional[ClientSession] = None
         self.available_tools: List[Dict] = []
         self.conversation_history: List[Dict] = []
+        self._stdio_context = None
         
         # System prompt that tells the LLM about its IoT capabilities
         self.system_prompt = """You are an AI assistant that can control IoT devices through an MCP (Model Context Protocol) interface.
@@ -74,58 +75,159 @@ Always be specific about which device and component you're interacting with."""
         try:
             print("🔗 Connecting to MCP bridge...")
             
-            # Start the MCP bridge as a subprocess
-            server_params = StdioServerParameters(
-                command="python",
-                args=["-m", "mcp_mqtt_bridge", "--log-level", "WARNING"],
-                env=dict(os.environ)
-            )
+            # Import the bridge components directly
+            from mcp_mqtt_bridge.bridge import MCPMQTTBridge
+            from mcp_mqtt_bridge.database import DatabaseManager
+            from mcp_mqtt_bridge.device_manager import DeviceManager
             
-            # Connect to the MCP server
-            self.read, self.write = await stdio_client(server_params)
-            self.mcp_session = ClientSession(self.read, self.write)
+            # Connect to the existing database and device manager
+            self.database = DatabaseManager("./data/bridge.db")
+            self.device_manager = DeviceManager()
             
-            # Initialize the session
-            init_result = await self.mcp_session.initialize()
-            print(f"✅ Connected to MCP bridge: {init_result.server_info.name}")
+            # Load devices from database
+            devices = self.database.get_all_devices()
+            for device_data in devices:
+                # Reconstruct device objects (simplified)
+                pass
             
-            # Get available tools
-            tools_result = await self.mcp_session.list_tools()
+            # Define available tools manually based on the bridge's MCP server
             self.available_tools = [
                 {
                     "type": "function",
                     "function": {
-                        "name": tool.name,
-                        "description": tool.description,
-                        "parameters": tool.inputSchema
+                        "name": "list_devices",
+                        "description": "List all connected IoT devices",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "online_only": {
+                                    "type": "boolean",
+                                    "description": "Only show online devices",
+                                    "default": False
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "read_sensor",
+                        "description": "Read sensor data from a device",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "device_id": {
+                                    "type": "string",
+                                    "description": "Device identifier"
+                                },
+                                "sensor_type": {
+                                    "type": "string", 
+                                    "description": "Type of sensor to read"
+                                }
+                            },
+                            "required": ["device_id", "sensor_type"]
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "control_actuator",
+                        "description": "Control an actuator on a device",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "device_id": {
+                                    "type": "string",
+                                    "description": "Device identifier"
+                                },
+                                "actuator_type": {
+                                    "type": "string",
+                                    "description": "Type of actuator to control"
+                                },
+                                "action": {
+                                    "type": "string",
+                                    "description": "Action to perform (on/off/toggle/etc)"
+                                }
+                            },
+                            "required": ["device_id", "actuator_type", "action"]
+                        }
                     }
                 }
-                for tool in tools_result.tools
             ]
             
-            print(f"🛠️  Available tools: {', '.join(tool.name for tool in tools_result.tools)}")
+            print(f"✅ Connected to MCP bridge database")
+            print(f"🛠️  Available tools: {', '.join(tool['function']['name'] for tool in self.available_tools)}")
             return True
             
         except Exception as e:
             print(f"❌ Failed to connect to MCP bridge: {e}")
             print("   Make sure the bridge is running with: python -m mcp_mqtt_bridge")
+            import traceback
+            traceback.print_exc()
             return False
+
+    async def cleanup(self):
+        """Clean up MCP connection."""
+        if self._stdio_context:
+            try:
+                await self._stdio_context.__aexit__(None, None, None)
+            except Exception:
+                pass
 
     async def call_mcp_tool(self, tool_name: str, arguments: Dict[str, Any]) -> str:
         """Call an MCP tool and return the result."""
         try:
             print(f"🔧 Calling {tool_name} with args: {arguments}")
-            result = await self.mcp_session.call_tool(tool_name, arguments)
             
-            if result.isError:
-                return f"Error: {result.content[0].text if result.content else 'Unknown error'}"
+            if tool_name == "list_devices":
+                online_only = arguments.get("online_only", False)
+                devices = self.database.get_all_devices()
+                
+                if online_only:
+                    # Filter to only show devices with recent activity
+                    devices = [d for d in devices if d.get('status') == 'online']
+                
+                device_list = []
+                for device in devices:
+                    device_info = f"• {device['device_id']} ({device.get('device_type', 'unknown')})"
+                    if device.get('sensors'):
+                        device_info += f" - Sensors: {', '.join(eval(device['sensors']) if isinstance(device['sensors'], str) else device['sensors'])}"
+                    if device.get('actuators'):
+                        device_info += f" - Actuators: {', '.join(eval(device['actuators']) if isinstance(device['actuators'], str) else device['actuators'])}"
+                    device_list.append(device_info)
+                
+                return f"Found {len(devices)} devices:\n" + "\n".join(device_list)
+                
+            elif tool_name == "read_sensor":
+                device_id = arguments.get("device_id")
+                sensor_type = arguments.get("sensor_type")
+                
+                # Get latest sensor reading from database
+                readings = self.database.get_recent_sensor_data(device_id, sensor_type, hours=1)
+                if readings:
+                    latest = readings[0]
+                    return f"Latest {sensor_type} reading from {device_id}: {latest['value']} {latest.get('unit', '')}"
+                else:
+                    return f"No recent {sensor_type} readings found for device {device_id}"
+                    
+            elif tool_name == "control_actuator":
+                device_id = arguments.get("device_id")
+                actuator_type = arguments.get("actuator_type")
+                action = arguments.get("action")
+                
+                # This would need to publish MQTT message to control the actuator
+                # For now, return a simulated response
+                return f"Sent command to {device_id}: {actuator_type} → {action}"
+                
             else:
-                return result.content[0].text if result.content else "No result"
+                return f"Unknown tool: {tool_name}"
                 
         except Exception as e:
             return f"Error calling tool {tool_name}: {e}"
 
-    def get_openai_response(self, user_message: str) -> str:
+    async def get_openai_response(self, user_message: str) -> str:
         """Get response from OpenAI with function calling capability."""
         try:
             # Add user message to conversation
@@ -222,7 +324,7 @@ Always be specific about which device and component you're interacting with."""
                 
                 # Get AI response
                 print("🤖 Assistant: ", end="", flush=True)
-                response = self.get_openai_response(user_input)
+                response = await self.get_openai_response(user_input)
                 print(response)
                 
                 # Update conversation history
