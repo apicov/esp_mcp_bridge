@@ -220,8 +220,7 @@ class MCPMQTTBridge:
             logger.debug(f"Device status from {device_id}: {status}")
             
             # Update device online status
-            is_online = status.lower() in ["online", "connected", "active"]
-            self.device_manager.update_device_online_status(device_id, is_online)
+            self.device_manager.update_device_status(device_id, {"value": status})
             
         except Exception as e:
             logger.error(f"Error handling device status: {e}")
@@ -255,7 +254,7 @@ class MCPMQTTBridge:
         except Exception as e:
             logger.error(f"Error handling device error: {e}")
     
-    def _on_mqtt_connected(self):
+    def _on_mqtt_connected(self, reconnected: bool):
         """Handle MQTT connection established"""
         logger.info("MQTT connected successfully")
     
