@@ -91,15 +91,14 @@ class MCPServerManager:
         
         # Add historical data if requested
         if history_minutes > 0:
-            since = datetime.now() - timedelta(minutes=history_minutes)
-            history = self.database_manager.get_sensor_readings(
-                device_id, sensor_type, since
+            history = self.database_manager.get_sensor_data(
+                device_id, sensor_type, history_minutes
             )
             result["history"] = [
                 {
-                    "value": reading[2],  # value column
-                    "timestamp": reading[5].isoformat(),  # timestamp column
-                    "quality": reading[4]  # quality column
+                    "value": reading["value"],
+                    "timestamp": reading["timestamp"],
+                    "unit": reading["unit"]
                 }
                 for reading in history
             ]

@@ -62,7 +62,7 @@ class MCPMQTTBridge:
         logger.info("Starting MCP-MQTT Bridge...")
         
         # Initialize database
-        self.database.initialize()
+
         
         # Connect to MQTT
         await self.mqtt.connect()
@@ -130,15 +130,14 @@ class MCPMQTTBridge:
             self.device_manager.update_sensor_reading(device_id, sensor_type, payload)
             
             # Store in database
-            reading = SensorReading(
-                device_id=device_id,
-                sensor_type=sensor_type,
-                value=payload.get("value", {}).get("reading", 0),
-                unit=payload.get("value", {}).get("unit"),
-                timestamp=datetime.fromtimestamp(payload.get("timestamp", datetime.now().timestamp())),
-                quality=payload.get("value", {}).get("quality")
-            )
-            self.database.store_sensor_reading(reading)
+            sensor_data = {
+                "device_id": device_id,
+                "sensor_type": sensor_type,
+                "value": payload.get("value", {}).get("reading", 0),
+                "unit": payload.get("value", {}).get("unit", ""),
+                "timestamp": datetime.fromtimestamp(payload.get("timestamp", datetime.now().timestamp())).isoformat()
+            }
+            self.database.store_sensor_data(sensor_data)
             
         except Exception as e:
             logger.error(f"Error handling sensor data: {e}")
@@ -190,6 +189,18 @@ class MCPMQTTBridge:
             
             # Store in database
             self.database.update_device_capabilities(device_id, payload)
+            
+            # Also register the device in the main devices table
+            device_data = {
+                "device_id": device_id,
+                "device_type": payload.get("device_type", "esp32"),
+                "sensors": payload.get("sensors", []),
+                "actuators": payload.get("actuators", []),
+                "firmware_version": payload.get("firmware_version", ""),
+                "location": payload.get("location", ""),
+                "status": "online"
+            }
+            self.database.register_device(device_data)
             
         except Exception as e:
             logger.error(f"Error handling device capabilities: {e}")

@@ -38,7 +38,7 @@ def temp_db_path():
 def database_manager(temp_db_path):
     """Create a DatabaseManager instance with temporary database."""
     db_manager = DatabaseManager(db_path=temp_db_path)
-    db_manager.initialize()
+
     yield db_manager
     db_manager.close()
 

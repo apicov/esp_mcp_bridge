@@ -79,7 +79,7 @@ def setup_database():
     try:
         from mcp_mqtt_bridge.database import DatabaseManager
         db_manager = DatabaseManager(str(db_path))
-        db_manager.initialize()
+    
         db_manager.close()
         print(f"✓ Database created at {db_path}")
     except ImportError:
