@@ -1,0 +1,54 @@
+# Default Configuration Template for ESP32 MCP Bridge
+
+# ESP32 Firmware Configuration
+firmware:
+  wifi:
+    ssid: "Your_WiFi_SSID"
+    password: "Your_WiFi_Password"
+  
+  mqtt:
+    broker_uri: "mqtt://192.168.1.100:1883"
+    username: ""  # Optional
+    password: ""  # Optional
+    client_id_prefix: "esp32"
+  
+  sensors:
+    publish_interval_ms: 10000
+    max_sensors: 16
+  
+  actuators:
+    command_timeout_ms: 5000
+    max_actuators: 16
+  
+  system:
+    enable_watchdog: true
+    log_level: 3  # 0=None, 1=Error, 2=Warn, 3=Info, 4=Debug, 5=Verbose
+    task_stack_size: 4096
+
+# Python MCP Server Configuration  
+server:
+  mqtt:
+    broker: "localhost"
+    port: 1883
+    username: ""
+    password: ""
+    client_id: "mcp_bridge_server"
+  
+  database:
+    path: "./data/bridge.db"
+    retention_days: 30
+    cleanup_interval_hours: 24
+  
+  monitoring:
+    device_timeout_minutes: 5
+    metrics_interval_seconds: 60
+    log_level: "INFO"
+    max_errors_per_device: 100
+
+# Security Configuration
+security:
+  enable_tls: false
+  ca_cert_path: "./certs/ca.crt"
+  cert_path: "./certs/client.crt"
+  key_path: "./certs/client.key"
+  skip_cert_verification: false  # Set to true only for development 

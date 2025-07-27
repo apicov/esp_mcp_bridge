@@ -1,0 +1,27 @@
+# MCP-MQTT Bridge Server Dependencies
+
+# MCP Protocol support
+mcp>=1.0.0
+
+# MQTT client
+paho-mqtt>=1.6.1
+
+# JSON handling (included in Python standard library)
+# sqlite3 (included in Python standard library)
+
+# Type hints and data classes (Python 3.7+)
+typing-extensions>=4.0.0
+
+# Development dependencies
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.0.0
+
+# Optional: For better performance
+uvloop>=0.17.0; sys_platform != "win32"
+
+# Optional: For enhanced logging
+colorlog>=6.7.0
+
+# Optional: For configuration management
+pydantic>=2.0.0 

@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # MQTT Broker
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mcp-mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_logs:/mosquitto/log
+    restart: unless-stopped
+    networks:
+      - mcp-network
+
+  # MCP-MQTT Bridge Server
+  mcp-bridge:
+    build: 
+      context: ../server
+      dockerfile: Dockerfile
+    container_name: mcp-bridge-server
+    environment:
+      - MQTT_BROKER=mosquitto
+      - MQTT_PORT=1883
+      - DB_PATH=/data/bridge.db
+      - LOG_LEVEL=INFO
+    volumes:
+      - bridge_data:/data
+      - ../config:/config:ro
+    depends_on:
+      - mosquitto
+    restart: unless-stopped
+    networks:
+      - mcp-network
+
+  # Optional: Database viewer/admin
+  adminer:
+    image: adminer
+    container_name: mcp-adminer
+    ports:
+      - "8080:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=sqlite:///data/bridge.db
+    volumes:
+      - bridge_data:/data:ro
+    depends_on:
+      - mcp-bridge
+    restart: unless-stopped
+    networks:
+      - mcp-network
+
+volumes:
+  mosquitto_data:
+  mosquitto_logs:
+  bridge_data:
+
+networks:
+  mcp-network:
+    driver: bridge 
