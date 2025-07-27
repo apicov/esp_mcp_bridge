@@ -214,7 +214,15 @@ This creates a complete end-to-end system where you can:
 - **Chat naturally** with GPT-4 about your devices
 - **Control devices** by voice: *"Turn on the kitchen LED"*
 - **Read sensors** by asking: *"What's the temperature in the bedroom?"*
+- **Read all sensors**: *"Show me all sensors"* - reads multiple sensors efficiently
+- **Device-specific queries**: *"Read all sensors from the kitchen"*
 - **Get intelligent responses** that understand your home automation
+
+**Recent Enhancements:**
+- ✅ **Fixed multi-sensor reading** - No more stopping after each sensor
+- ✅ **Added `read_all_sensors` function** - Efficient batch sensor reading
+- ✅ **Added `read_device_sensors` function** - Read all sensors from specific device
+- ✅ **Improved OpenAI function calling** - Parallel execution and better prompts
 
 See `CHAT_DEMO_README.md` for complete instructions and example conversations!
 

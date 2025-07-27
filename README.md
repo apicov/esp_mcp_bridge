@@ -57,12 +57,13 @@ Add to your Claude Desktop configuration:
 
 ## 📚 **Documentation**
 
-- **[Getting Started Guide](docs/getting-started.md)** - Complete setup instructions
+- **[Comprehensive Code Guide](ESP32_MCP_BRIDGE_COMPREHENSIVE_GUIDE.md)** - Complete architecture and code analysis
+- **[Getting Started Guide](docs/setup_guide.md)** - Complete setup instructions
 - **[ESP32 Firmware Guide](firmware/README.md)** - ESP32 development
 - **[Python Server Guide](server/README.md)** - MCP server setup
-- **[API Reference](docs/api-reference.md)** - Complete API documentation
-- **[Architecture Overview](docs/architecture.md)** - System design
-- **[Deployment Guide](docs/deployment.md)** - Production deployment
+- **[Chat Demo Guide](server/CHAT_DEMO_README.md)** - OpenAI chat interface
+- **[Architecture Overview](docs/enhanced-features.md)** - System design
+- **[Developer Guide](CLAUDE.md)** - Development commands and workflows
 
 ## ✨ **Features**
 

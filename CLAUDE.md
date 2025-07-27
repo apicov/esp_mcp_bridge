@@ -178,3 +178,17 @@ This launches:
 - OpenAI chat interface for natural language device control
 
 The demo demonstrates real-time sensor monitoring and actuator control through natural language commands.
+
+## Comprehensive Documentation
+
+For detailed code analysis, architecture overview, and implementation details, see:
+- **[ESP32_MCP_BRIDGE_COMPREHENSIVE_GUIDE.md](ESP32_MCP_BRIDGE_COMPREHENSIVE_GUIDE.md)** - Complete 12,000+ word guide covering:
+  - Detailed code analysis of ESP32 firmware and Python server components
+  - MQTT communication protocol specifications
+  - MCP integration patterns and OpenAI function calling
+  - Database schema and data flow analysis
+  - Error handling strategies and monitoring approaches
+  - Configuration and deployment examples
+  - Testing frameworks and mock device usage
+
+This comprehensive guide provides both high-level architecture understanding and detailed implementation guidance for developers working with the codebase.
