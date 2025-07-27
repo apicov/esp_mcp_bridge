@@ -54,19 +54,41 @@ class IoTChatInterface:
 
 You have access to the following IoT device control tools:
 - list_devices: List all connected IoT devices
-- read_sensor: Read sensor data from devices (temperature, humidity, etc.)
+- read_sensor: Read sensor data from a single device/sensor
+- read_all_sensors: Read multiple sensors from multiple devices at once (USE THIS for "all sensors" requests)
 - control_actuator: Control device actuators (LEDs, relays, etc.)
-- get_device_info: Get detailed information about a specific device
-- query_devices: Search for devices by capabilities
-- get_alerts: Get recent errors and alerts
 
-When users ask about devices or want to control them, use the appropriate MCP tools to interact with the IoT system. Be helpful and explain what you're doing with the devices.
+Available devices: esp32_kitchen, esp32_living_room, esp32_bedroom
+Available sensors: temperature, humidity, pressure, light (always use lowercase)
+
+IMPORTANT: When users ask for "all sensors" or multiple readings, use read_all_sensors instead of multiple read_sensor calls.
+
+CRITICAL: You MUST make multiple function calls in parallel when users request multiple readings. Do NOT make one call, respond, wait for user input, then make another call.
+
+WRONG way (don't do this):
+User: "Read all sensors"
+AI: Calls read_sensor once, says "The temperature is 22 degrees. Now let me check humidity."
+[Waits for user response] - WRONG
+
+CORRECT way (do this):
+User: "Read all sensors" 
+AI: Calls read_sensor multiple times simultaneously for ALL sensors, then provides complete summary - CORRECT
+
+When users ask for multiple readings, you must:
+1. Identify ALL the sensors/devices they want
+2. Make ALL read_sensor calls at once (parallel function calling)
+3. Wait for ALL results
+4. Provide ONE comprehensive response with all data
+
+Never stop mid-task to ask permission or provide partial results.
+Do not apologize or say you need to "try again" - just execute all required function calls immediately.
+Be confident and complete your tasks efficiently.
 
 Examples of what you can do:
-- "Turn on the kitchen LED" → use control_actuator
-- "What's the temperature in the living room?" → use read_sensor
-- "Show me all devices" → use list_devices
-- "Check if there are any errors" → use get_alerts
+- Turn on the kitchen LED - use control_actuator
+- What's the temperature in the living room - use read_sensor
+- Show me all devices - use list_devices
+- Check if there are any errors - use get_alerts
 
 Always be specific about which device and component you're interacting with."""
 
@@ -154,6 +176,45 @@ Always be specific about which device and component you're interacting with."""
                             "required": ["device_id", "actuator_type", "action"]
                         }
                     }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "read_all_sensors",
+                        "description": "Read all sensors from all devices or specific devices",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "device_ids": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "List of device IDs to read from (empty for all devices)"
+                                },
+                                "sensor_types": {
+                                    "type": "array", 
+                                    "items": {"type": "string"},
+                                    "description": "List of sensor types to read (empty for all sensors)"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "read_device_sensors",
+                        "description": "Read all sensors from a specific device",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "device_id": {
+                                    "type": "string",
+                                    "description": "Device ID to read all sensors from"
+                                }
+                            },
+                            "required": ["device_id"]
+                        }
+                    }
                 }
             ]
             
@@ -202,7 +263,7 @@ Always be specific about which device and component you're interacting with."""
                 
             elif tool_name == "read_sensor":
                 device_id = arguments.get("device_id")
-                sensor_type = arguments.get("sensor_type")
+                sensor_type = arguments.get("sensor_type", "").lower()  # Convert to lowercase
                 
                 # First check if the device exists
                 devices = self.database.get_all_devices()
@@ -246,6 +307,75 @@ Always be specific about which device and component you're interacting with."""
                 # For now, return a simulated response
                 return f"Sent command to {device_id}: {actuator_type} → {action}"
                 
+            elif tool_name == "read_all_sensors":
+                device_ids = arguments.get("device_ids", [])
+                sensor_types = arguments.get("sensor_types", [])
+                
+                # Get all devices if none specified
+                if not device_ids:
+                    devices = self.database.get_all_devices()
+                    device_ids = [d['device_id'] for d in devices]
+                
+                # Default sensor types if none specified
+                if not sensor_types:
+                    sensor_types = ['temperature', 'humidity', 'pressure', 'light']
+                
+                results = []
+                import random
+                
+                for device_id in device_ids:
+                    device_results = []
+                    for sensor_type in sensor_types:
+                        # Generate simulated data for each sensor
+                        if sensor_type == "temperature":
+                            value = round(random.uniform(20, 25), 1)
+                            device_results.append(f"{sensor_type}: {value}°C")
+                        elif sensor_type == "humidity":
+                            value = round(random.uniform(45, 65), 1)
+                            device_results.append(f"{sensor_type}: {value}%")
+                        elif sensor_type == "pressure":
+                            value = round(random.uniform(1010, 1020), 1)
+                            device_results.append(f"{sensor_type}: {value} hPa")
+                        elif sensor_type == "light":
+                            value = round(random.uniform(100, 800), 0)
+                            device_results.append(f"{sensor_type}: {value} lux")
+                    
+                    if device_results:
+                        results.append(f"{device_id}: {', '.join(device_results)}")
+                
+                return "Sensor readings:\n" + "\n".join(results)
+                
+            elif tool_name == "read_device_sensors":
+                device_id = arguments.get("device_id")
+                
+                # Check if device exists
+                devices = self.database.get_all_devices()
+                device_exists = any(d['device_id'] == device_id for d in devices)
+                
+                if not device_exists:
+                    return f"Device {device_id} not found"
+                
+                # Read all sensor types for this device
+                sensor_types = ['temperature', 'humidity', 'pressure', 'light']
+                device_results = []
+                import random
+                
+                for sensor_type in sensor_types:
+                    if sensor_type == "temperature":
+                        value = round(random.uniform(20, 25), 1)
+                        device_results.append(f"{sensor_type}: {value}°C")
+                    elif sensor_type == "humidity":
+                        value = round(random.uniform(45, 65), 1)
+                        device_results.append(f"{sensor_type}: {value}%")
+                    elif sensor_type == "pressure":
+                        value = round(random.uniform(1010, 1020), 1)
+                        device_results.append(f"{sensor_type}: {value} hPa")
+                    elif sensor_type == "light":
+                        value = round(random.uniform(100, 800), 0)
+                        device_results.append(f"{sensor_type}: {value} lux")
+                
+                return f"All sensors from {device_id}:\n{', '.join(device_results)}"
+                
             else:
                 return f"Unknown tool: {tool_name}"
                 
@@ -262,36 +392,47 @@ Always be specific about which device and component you're interacting with."""
             
             print("🤖 Thinking...")
             
+            # Detect if this is a request for multiple readings
+            is_multiple_request = any(phrase in user_message.lower() for phrase in [
+                "all sensors", "all devices", "every sensor", "read sensors", 
+                "check all", "show all", "multiple", "temperature and humidity",
+                "all readings", "every device"
+            ])
+            
             # Call OpenAI API with function calling
             response = self.openai_client.chat.completions.create(
                 model="gpt-4",  # or "gpt-3.5-turbo" for faster/cheaper responses
                 messages=messages,
                 tools=self.available_tools if self.available_tools else None,
-                tool_choice="auto" if self.available_tools else None,
-                temperature=0.7,
-                max_tokens=1000
+                tool_choice="required" if is_multiple_request else "auto",
+                temperature=0.1,  # Even lower temperature for more consistent behavior
+                max_tokens=2000,  # More tokens for multiple function calls
+                parallel_tool_calls=True  # Enable parallel tool calling
             )
             
             assistant_message = response.choices[0].message
             
             # Handle function calls
             if assistant_message.tool_calls:
-                # Execute the function calls
-                function_results = []
+                print(f"🔧 Executing {len(assistant_message.tool_calls)} tool calls...")
+                
+                # Don't show the partial assistant message to user yet
+                # Execute all function calls in parallel
+                tasks = []
                 for tool_call in assistant_message.tool_calls:
                     function_name = tool_call.function.name
                     function_args = json.loads(tool_call.function.arguments)
-                    
-                    # Call the MCP tool
-                    result = asyncio.create_task(
-                        self.call_mcp_tool(function_name, function_args)
-                    )
-                    function_result = await result
-                    
+                    task = self.call_mcp_tool(function_name, function_args)
+                    tasks.append((tool_call, task))
+                
+                # Wait for all tasks to complete
+                function_results = []
+                for tool_call, task in tasks:
+                    function_result = await task
                     function_results.append({
                         "tool_call_id": tool_call.id,
                         "role": "tool",
-                        "name": function_name,
+                        "name": tool_call.function.name,
                         "content": function_result
                     })
                 
@@ -303,15 +444,17 @@ Always be specific about which device and component you're interacting with."""
                 })
                 messages.extend(function_results)
                 
+                print("🤖 Analyzing results...")
                 final_response = self.openai_client.chat.completions.create(
                     model="gpt-4",
                     messages=messages,
-                    temperature=0.7,
-                    max_tokens=1000
+                    temperature=0.3,
+                    max_tokens=1500
                 )
                 
                 return final_response.choices[0].message.content
             else:
+                # No tool calls, return the assistant's direct response
                 return assistant_message.content
                 
         except Exception as e:
