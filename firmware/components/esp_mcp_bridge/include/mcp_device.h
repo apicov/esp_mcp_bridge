@@ -5,6 +5,7 @@
 
 #ifndef MCP_DEVICE_H
 #define MCP_DEVICE_H
+#include "esp_chip_info.h"
 
 #ifdef __cplusplus
 extern "C" {
