@@ -9,6 +9,7 @@ import asyncio
 import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
+from .timezone_utils import utc_isoformat
 
 try:
     from fastmcp import FastMCP
@@ -240,7 +241,7 @@ class FastMCPServer:
             results[device_id] = device_sensors
         
         return {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_isoformat(),
             "devices": results,
             "total_devices": len(device_ids),
             "online_devices": len([d for d in device_ids if devices.get(d) and devices[d].online])
@@ -267,7 +268,7 @@ class FastMCPServer:
             "actuator_type": actuator_type,
             "action": action,
             "value": value,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_isoformat(),
             "status": "command_sent"
         }
     
@@ -343,7 +344,7 @@ class FastMCPServer:
             "online_devices": online_devices,
             "offline_devices": total_devices - online_devices,
             "database_stats": db_stats,
-            "system_timestamp": datetime.now().isoformat()
+            "system_timestamp": utc_isoformat()
         }
     
     async def _get_device_metrics(self, device_id: str) -> Dict[str, Any]:
