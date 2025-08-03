@@ -96,10 +96,11 @@ class FastMCPServer:
             return await self._read_sensor(device_id, sensor_type, history_minutes)
         
         @self.mcp.tool()
-        async def read_all_sensors(device_ids: Optional[List[str]] = None, 
+        async def read_all_sensors(device_ids: Optional[List[str]] = None,
+                                 device_id: Optional[str] = None,
                                  sensor_types: Optional[List[str]] = None) -> Dict[str, Any]:
             """Read multiple sensors from multiple devices at once"""
-            return await self._read_all_sensors(device_ids, sensor_types)
+            return await self._read_all_sensors(device_ids, device_id, sensor_types)
         
         @self.mcp.tool()
         async def control_actuator(device_id: str, actuator_type: str, 
@@ -201,13 +202,17 @@ class FastMCPServer:
         return result
     
     async def _read_all_sensors(self, device_ids: Optional[List[str]] = None, 
+                               device_id: Optional[str] = None,
                                sensor_types: Optional[List[str]] = None) -> Dict[str, Any]:
         """Read multiple sensors from multiple devices at once"""
         devices_list = self.device_manager.get_all_devices()
         devices = {d.device_id: d for d in devices_list}
         
-        # If no device_ids specified, use all online devices
-        if device_ids is None:
+        # Handle both device_id (singular) and device_ids (plural) parameters
+        if device_id is not None:
+            device_ids = [device_id]
+        elif device_ids is None:
+            # If no device_ids specified, use all online devices
             device_ids = [d.device_id for d in devices_list if d.online]
         
         results = {}
