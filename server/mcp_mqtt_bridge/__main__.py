@@ -154,36 +154,33 @@ async def main():
         await bridge.start()
         
         # Start MCP server if enabled
-        mcp_task = None
+        http_server = None
         if args.enable_mcp_server:
             try:
-                from .fast_mcp_server import run_mcp_server
-                logger.info(f"Starting MCP server on {args.mcp_host}:{args.mcp_port}")
+                from .mcp_http_server import MCPHTTPServer
+                logger.info(f"Starting MCP HTTP server on {args.mcp_host}:{args.mcp_port}")
                 
-                # Run MCP server in background
-                mcp_task = asyncio.create_task(
-                    run_mcp_server(bridge, args.mcp_host, args.mcp_port)
-                )
+                # Create and start HTTP server
+                http_server = MCPHTTPServer(bridge, host=args.mcp_host, port=args.mcp_port)
+                await http_server.start()
                 
-                # Wait for server to start
-                await asyncio.sleep(2)
-                logger.info("MCP server started successfully")
+                logger.info("MCP HTTP server started successfully")
+                logger.info(f"  - Health check: http://{args.mcp_host}:{args.mcp_port}/health")
+                logger.info(f"  - Tools API: http://{args.mcp_host}:{args.mcp_port}/tools")
+                logger.info(f"  - Devices API: http://{args.mcp_host}:{args.mcp_port}/devices")
                 
             except ImportError as e:
-                logger.error(f"Failed to start MCP server: {e}")
-                logger.error("Make sure MCP is installed: pip install mcp")
+                logger.error(f"Failed to start MCP HTTP server: {e}")
+                logger.error("Make sure aiohttp is installed: pip install aiohttp")
                 return 1
             except Exception as e:
-                logger.error(f"Error starting MCP server: {e}")
+                logger.error(f"Error starting MCP HTTP server: {e}")
                 return 1
         
         # Keep running
-        if args.enable_mcp_server and mcp_task:
-            logger.info("Bridge and MCP server running... Press Ctrl+C to stop")
-            await asyncio.gather(
-                asyncio.Event().wait(),  # Keep bridge running
-                mcp_task
-            )
+        if args.enable_mcp_server and http_server:
+            logger.info("Bridge and MCP HTTP server running... Press Ctrl+C to stop")
+            await asyncio.Event().wait()  # Keep running until interrupted
         else:
             logger.info("Bridge running... Press Ctrl+C to stop")
             await asyncio.Event().wait()
@@ -195,6 +192,8 @@ async def main():
         sys.exit(1)
     finally:
         try:
+            if http_server:
+                await http_server.stop()
             await bridge.stop()
         except:
             pass
