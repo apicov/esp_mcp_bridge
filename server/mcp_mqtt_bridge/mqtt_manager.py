@@ -96,7 +96,7 @@ class MQTTManager:
                 except Exception as e:
                     logger.error(f"Error in connection callback: {e}")
     
-    def _on_disconnect(self, client, userdata, rc, properties=None):
+    def _on_disconnect(self, client, userdata, flags, rc, properties=None):
         """MQTT disconnection callback"""
         self.connected = False
         logger.warning(f"Disconnected from MQTT broker (code: {rc})")

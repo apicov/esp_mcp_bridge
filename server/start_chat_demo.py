@@ -3,10 +3,11 @@
 Complete IoT Chat Demo Startup Script
 
 This script starts all necessary services and then launches the chat interface:
-1. Mosquitto MQTT broker
-2. Mock ESP32 devices 
-3. MCP-MQTT Bridge
-4. Chat interface with OpenAI
+1. Mock ESP32 devices 
+2. MCP-MQTT Bridge
+3. Chat interface with OpenAI
+
+Note: Assumes MQTT broker is already running externally
 
 Usage:
     export OPENAI_API_KEY="your-api-key-here"
@@ -49,41 +50,41 @@ class IoTChatDemo:
             
         return True
 
-    def start_mosquitto(self) -> bool:
-        """Start Mosquitto MQTT broker."""
-        try:
-            print("🦟 Starting Mosquitto MQTT broker...")
-            
-            # Kill any existing mosquitto processes
-            subprocess.run(["pkill", "-f", "mosquitto"], capture_output=True)
-            time.sleep(1)
-            
-            # Start mosquitto
-            process = subprocess.Popen(
-                ["mosquitto", "-v"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            
-            self.processes.append(("mosquitto", process))
-            
-            # Wait a moment for it to start
-            time.sleep(2)
-            
-            if process.poll() is None:
-                print("✅ Mosquitto started successfully")
-                return True
-            else:
-                print("❌ Failed to start Mosquitto")
-                return False
-                
-        except FileNotFoundError:
-            print("❌ Mosquitto not found. Install with: sudo apt install mosquitto")
-            return False
-        except Exception as e:
-            print(f"❌ Error starting Mosquitto: {e}")
-            return False
+    # def start_mosquitto(self) -> bool:
+    #     """Start Mosquitto MQTT broker."""
+    #     try:
+    #         print("🦟 Starting Mosquitto MQTT broker...")
+    #         
+    #         # Kill any existing mosquitto processes
+    #         subprocess.run(["pkill", "-f", "mosquitto"], capture_output=True)
+    #         time.sleep(1)
+    #         
+    #         # Start mosquitto
+    #         process = subprocess.Popen(
+    #             ["mosquitto", "-v"],
+    #             stdout=subprocess.PIPE,
+    #             stderr=subprocess.PIPE,
+    #             text=True
+    #         )
+    #         
+    #         self.processes.append(("mosquitto", process))
+    #         
+    #         # Wait a moment for it to start
+    #         time.sleep(2)
+    #         
+    #         if process.poll() is None:
+    #             print("✅ Mosquitto started successfully")
+    #             return True
+    #         else:
+    #             print("❌ Failed to start Mosquitto")
+    #             return False
+    #             
+    #     except FileNotFoundError:
+    #         print("❌ Mosquitto not found. Install with: sudo apt install mosquitto")
+    #         return False
+    #     except Exception as e:
+    #         print(f"❌ Error starting Mosquitto: {e}")
+    #         return False
 
     def start_mock_devices(self) -> bool:
         """Start mock ESP32 devices."""
@@ -184,10 +185,10 @@ class IoTChatDemo:
                 print(f"   Error stopping {name}: {e}")
         
         # Clean up mosquitto specifically
-        try:
-            subprocess.run(["pkill", "-f", "mosquitto"], capture_output=True)
-        except:
-            pass
+        # try:
+        #     subprocess.run(["pkill", "-f", "mosquitto"], capture_output=True)
+        # except:
+        #     pass
             
         print("✅ Cleanup complete")
 
@@ -215,9 +216,9 @@ class IoTChatDemo:
         
         try:
             # Start services in order
-            if not self.start_mosquitto():
-                return 1
-                
+            # Note: Assumes MQTT broker (mosquitto) is already running
+            print("📋 Assuming MQTT broker is already running...")
+            
             if not self.start_mock_devices():
                 return 1
                 
