@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 from .data_models import IoTDevice, SensorReading, ActuatorState, DeviceCapabilities, DeviceMetrics
+from .timezone_utils import utc_now, from_timestamp_utc, age_seconds, is_expired, utc_isoformat, ensure_utc
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ class DeviceManager:
         device.capabilities.metadata = capabilities_data.get("metadata", {})
         device.capabilities.firmware_version = capabilities_data.get("firmware_version")
         device.capabilities.hardware_version = capabilities_data.get("hardware_version")
-        device.last_seen = datetime.now()
+        device.last_seen = utc_now()
         
         logger.info(f"Updated capabilities for device {device_id}")
     
@@ -88,17 +89,17 @@ class DeviceManager:
             value=reading_value,
             unit=unit,
             quality=quality,
-            timestamp=datetime.fromtimestamp(reading_data.get("timestamp", datetime.now().timestamp()))
+            timestamp=from_timestamp_utc(reading_data.get("timestamp", utc_now().timestamp()))
         )
         
         device.sensor_readings[sensor_type] = reading
-        device.last_seen = datetime.now()
+        device.last_seen = utc_now()
         
         # Update metrics
         if device_id not in self.device_metrics:
             self.device_metrics[device_id] = DeviceMetrics()
         self.device_metrics[device_id].messages_received += 1
-        self.device_metrics[device_id].last_activity = datetime.now()
+        self.device_metrics[device_id].last_activity = utc_now()
         
         logger.debug(f"Updated sensor reading for {device_id}/{sensor_type}: {reading_value}")
     
@@ -115,17 +116,17 @@ class DeviceManager:
             device_id=device_id,
             actuator_type=actuator_type,
             state=state,
-            timestamp=datetime.fromtimestamp(state_data.get("timestamp", datetime.now().timestamp()))
+            timestamp=from_timestamp_utc(state_data.get("timestamp", utc_now().timestamp()))
         )
         
         device.actuator_states[actuator_type] = actuator_state
-        device.last_seen = datetime.now()
+        device.last_seen = utc_now()
         
         # Update metrics
         if device_id not in self.device_metrics:
             self.device_metrics[device_id] = DeviceMetrics()
         self.device_metrics[device_id].messages_received += 1
-        self.device_metrics[device_id].last_activity = datetime.now()
+        self.device_metrics[device_id].last_activity = utc_now()
         
         logger.info(f"Updated actuator state for {device_id}/{actuator_type}: {state}")
     
@@ -139,7 +140,7 @@ class DeviceManager:
         
         was_online = device.online
         device.online = (status == "online")
-        device.last_seen = datetime.now()
+        device.last_seen = utc_now()
         
         if was_online != device.online:
             logger.info(f"Device {device_id} is now {'online' if device.online else 'offline'}")
@@ -155,11 +156,11 @@ class DeviceManager:
             "error_type": error_data.get("value", {}).get("error_type", "unknown"),
             "message": error_data.get("value", {}).get("message", ""),
             "severity": error_data.get("value", {}).get("severity", 2),
-            "timestamp": datetime.fromtimestamp(error_data.get("timestamp", datetime.now().timestamp()))
+            "timestamp": from_timestamp_utc(error_data.get("timestamp", utc_now().timestamp()))
         }
         
         device.errors.append(error_record)
-        device.last_seen = datetime.now()
+        device.last_seen = utc_now()
         
         # Keep only last 100 errors per device
         if len(device.errors) > 100:
@@ -178,11 +179,8 @@ class DeviceManager:
     
     def check_device_timeouts(self):
         """Check for devices that haven't been seen recently and mark them offline"""
-        current_time = datetime.now()
-        timeout_threshold = timedelta(minutes=self.device_timeout_minutes)
-        
         for device_id, device in self.devices.items():
-            if device.online and (current_time - device.last_seen) > timeout_threshold:
+            if device.online and is_expired(device.last_seen, self.device_timeout_minutes):
                 device.online = False
                 logger.warning(f"Device {device_id} marked offline (timeout)")
     
@@ -197,7 +195,7 @@ class DeviceManager:
         return {
             "device_id": device_id,
             "online": device.online,
-            "last_seen": device.last_seen.isoformat(),
+            "last_seen": utc_isoformat(device.last_seen),
             "uptime_seconds": metrics.uptime_seconds,
             "capabilities": {
                 "sensors": device.capabilities.sensors,
@@ -212,16 +210,16 @@ class DeviceManager:
                         "value": reading.value,
                         "unit": reading.unit,
                         "quality": reading.quality,
-                        "timestamp": reading.timestamp.isoformat(),
-                        "age_seconds": (datetime.now() - reading.timestamp).total_seconds()
+                        "timestamp": utc_isoformat(reading.timestamp),
+                        "age_seconds": age_seconds(reading.timestamp)
                     }
                     for sensor, reading in device.sensor_readings.items()
                 },
                 "actuators": {
                     actuator: {
                         "state": state.state,
-                        "timestamp": state.timestamp.isoformat(),
-                        "age_seconds": (datetime.now() - state.timestamp).total_seconds()
+                        "timestamp": utc_isoformat(state.timestamp),
+                        "age_seconds": age_seconds(state.timestamp)
                     }
                     for actuator, state in device.actuator_states.items()
                 }
@@ -231,7 +229,7 @@ class DeviceManager:
                 "messages_received": metrics.messages_received,
                 "connection_failures": metrics.connection_failures,
                 "sensor_read_errors": metrics.sensor_read_errors,
-                "last_activity": metrics.last_activity.isoformat() if metrics.last_activity else None
+                "last_activity": utc_isoformat(metrics.last_activity) if metrics.last_activity else None
             },
             "recent_errors": device.errors[-10:] if device.errors else []
         }
@@ -244,7 +242,7 @@ class DeviceManager:
             {
                 "device_id": device.device_id,
                 "online": device.online,
-                "last_seen": device.last_seen.isoformat(),
+                "last_seen": utc_isoformat(device.last_seen),
                 "sensors": device.capabilities.sensors,
                 "actuators": device.capabilities.actuators,
                 "firmware_version": device.capabilities.firmware_version,
@@ -252,7 +250,7 @@ class DeviceManager:
                     sensor: {
                         "value": reading.value,
                         "unit": reading.unit,
-                        "timestamp": reading.timestamp.isoformat()
+                        "timestamp": utc_isoformat(reading.timestamp)
                     }
                     for sensor, reading in device.sensor_readings.items()
                 },
@@ -282,9 +280,7 @@ class DeviceManager:
                 if error.get("severity", 2) >= severity_min:
                     alerts.append({
                         "device_id": device.device_id,
-                        "timestamp": error.get("timestamp", datetime.now()).isoformat()
-                            if isinstance(error.get("timestamp"), datetime)
-                            else error.get("timestamp"),
+                        "timestamp": utc_isoformat(ensure_utc(error.get("timestamp"))),
                         "error_type": error.get("error_type"),
                         "message": error.get("message"),
                         "severity": error.get("severity")

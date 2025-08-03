@@ -5,6 +5,7 @@ Data models for the MCP-MQTT bridge server.
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
+from .timezone_utils import utc_now, age_seconds
 
 
 @dataclass
@@ -43,7 +44,7 @@ class IoTDevice:
     device_id: str
     capabilities: DeviceCapabilities = field(default_factory=DeviceCapabilities)
     online: bool = False
-    last_seen: datetime = field(default_factory=datetime.now)
+    last_seen: datetime = field(default_factory=utc_now)
     sensor_readings: Dict[str, SensorReading] = field(default_factory=dict)
     actuator_states: Dict[str, ActuatorState] = field(default_factory=dict)
     errors: List[Dict[str, Any]] = field(default_factory=list)
@@ -56,12 +57,12 @@ class DeviceMetrics:
     messages_received: int = 0
     connection_failures: int = 0
     sensor_read_errors: int = 0
-    last_activity: datetime = field(default_factory=datetime.now)
-    uptime_start: datetime = field(default_factory=datetime.now)
+    last_activity: datetime = field(default_factory=utc_now)
+    uptime_start: datetime = field(default_factory=utc_now)
     
     @property
     def uptime_seconds(self) -> int:
-        return int((datetime.now() - self.uptime_start).total_seconds())
+        return int(age_seconds(self.uptime_start))
 
 
 @dataclass

@@ -10,6 +10,8 @@ import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
 
+from .timezone_utils import from_timestamp_utc, utc_now, utc_timestamp, utc_isoformat
+
 from .mqtt_manager import MQTTManager
 from .database import DatabaseManager  
 from .device_manager import DeviceManager
@@ -163,7 +165,7 @@ class MCPMQTTBridge:
                 "sensor_type": sensor_type,
                 "value": payload.get("value", {}).get("reading", 0),
                 "unit": payload.get("value", {}).get("unit", ""),
-                "timestamp": datetime.fromtimestamp(payload.get("timestamp", datetime.now().timestamp())).isoformat()
+                "timestamp": utc_isoformat(from_timestamp_utc(payload.get("timestamp", utc_timestamp())))
             }
             self.database.store_sensor_data(sensor_data)
             
@@ -192,7 +194,7 @@ class MCPMQTTBridge:
                 device_id=device_id,
                 actuator_type=actuator_type,
                 state=payload.get("state", "unknown"),
-                timestamp=datetime.fromtimestamp(payload.get("timestamp", datetime.now().timestamp()))
+                timestamp=from_timestamp_utc(payload.get("timestamp", utc_timestamp()))
             )
             self.database.store_actuator_state(state)
             
@@ -292,7 +294,7 @@ class MCPMQTTBridge:
                 event_type="error",
                 data=payload,
                 severity=payload.get("severity", 2),
-                timestamp=datetime.fromtimestamp(payload.get("timestamp", datetime.now().timestamp()))
+                timestamp=from_timestamp_utc(payload.get("timestamp", utc_timestamp()))
             )
             
         except Exception as e:
@@ -317,7 +319,7 @@ class MCPMQTTBridge:
         payload = {
             "action": action,
             "value": value,
-            "timestamp": datetime.now().timestamp()
+            "timestamp": utc_timestamp()
         }
         
         success = await self.mqtt.publish(topic, payload)

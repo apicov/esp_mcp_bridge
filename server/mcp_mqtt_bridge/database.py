@@ -8,6 +8,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 from .data_models import SensorReading
+from .timezone_utils import utc_now, utc_minus_timedelta, utc_isoformat, ensure_utc
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +173,7 @@ class DatabaseManager:
                           duration_minutes: int = 60) -> List[Dict[str, Any]]:
         """Get historical sensor data"""
         try:
-            since = datetime.now() - timedelta(minutes=duration_minutes)
+            since = utc_minus_timedelta(timedelta(minutes=duration_minutes))
             
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
@@ -222,7 +223,7 @@ class DatabaseManager:
                           severity: int = 0, timestamp: datetime = None):
         """Store device event"""
         if timestamp is None:
-            timestamp = datetime.now()
+            timestamp = utc_now()
         
         try:
             with sqlite3.connect(self.db_path) as conn:
@@ -240,7 +241,7 @@ class DatabaseManager:
                          duration_hours: int = 24) -> List[Dict[str, Any]]:
         """Get device events with filtering"""
         try:
-            since = datetime.now() - timedelta(hours=duration_hours)
+            since = utc_minus_timedelta(timedelta(hours=duration_hours))
             
             query = """
                 SELECT * FROM device_events
@@ -283,7 +284,7 @@ class DatabaseManager:
                     json.dumps(capabilities.get('metadata', {})),
                     capabilities.get('firmware_version'),
                     capabilities.get('hardware_version'),
-                    datetime.now()
+                    utc_now()
                 ))
         except Exception as e:
             logger.error(f"Failed to update device capabilities: {e}")
@@ -303,9 +304,9 @@ class DatabaseManager:
                     metrics.get('messages_received', 0),
                     metrics.get('connection_failures', 0),
                     metrics.get('sensor_read_errors', 0),
-                    metrics.get('last_activity', datetime.now()),
-                    metrics.get('uptime_start', datetime.now()),
-                    datetime.now()
+                    metrics.get('last_activity', utc_now()),
+                    metrics.get('uptime_start', utc_now()),
+                    utc_now()
                 ))
         except Exception as e:
             logger.error(f"Failed to update device metrics: {e}")
@@ -313,7 +314,7 @@ class DatabaseManager:
     def cleanup_old_data(self, retention_days: int = 30):
         """Clean up old data beyond retention period"""
         try:
-            cutoff_date = datetime.now() - timedelta(days=retention_days)
+            cutoff_date = utc_minus_timedelta(timedelta(days=retention_days))
             
             with sqlite3.connect(self.db_path) as conn:
                 # Clean up old sensor readings
@@ -415,7 +416,7 @@ class DatabaseManager:
                     device_data.get("firmware_version", ""),
                     device_data.get("location", ""),
                     device_data.get("status", "offline"),
-                    datetime.now().isoformat()
+                    utc_now().isoformat()
                 ))
                 conn.commit()
         except Exception as e:
@@ -457,7 +458,7 @@ class DatabaseManager:
                 cursor = conn.cursor()
                 cursor.execute("""
                     UPDATE devices SET status = ?, last_seen = ? WHERE device_id = ?
-                """, (status, datetime.now().isoformat(), device_id))
+                """, (status, utc_isoformat(), device_id))
                 conn.commit()
         except Exception as e:
             logger.error(f"Failed to update device status: {e}")
@@ -488,7 +489,7 @@ class DatabaseManager:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                since_time = (datetime.now() - timedelta(minutes=history_minutes)).isoformat()
+                since_time = utc_isoformat(utc_minus_timedelta(timedelta(minutes=history_minutes)))
                 cursor.execute("""
                     SELECT device_id, sensor_type, value, unit, timestamp
                     FROM sensor_data 
@@ -535,7 +536,7 @@ class DatabaseManager:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                since_time = (datetime.now() - timedelta(hours=hours)).isoformat()
+                since_time = utc_isoformat(utc_minus_timedelta(timedelta(hours=hours)))
                 cursor.execute("""
                     SELECT device_id, error_type, message, severity, timestamp
                     FROM device_errors 
