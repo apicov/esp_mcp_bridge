@@ -14,9 +14,10 @@ logger = logging.getLogger(__name__)
 class MCPServerManager:
     """Manages MCP tools and protocol interface"""
     
-    def __init__(self, device_manager, database_manager):
+    def __init__(self, device_manager, database_manager, bridge=None):
         self.device_manager = device_manager
         self.database_manager = database_manager
+        self.bridge = bridge
         self.tools = self._register_tools()
     
     def _register_tools(self) -> Dict[str, callable]:
@@ -29,7 +30,8 @@ class MCPServerManager:
             "query_devices": self.query_devices,
             "get_alerts": self.get_alerts,
             "get_system_status": self.get_system_status,
-            "get_device_metrics": self.get_device_metrics
+            "get_device_metrics": self.get_device_metrics,
+            "ping_device": self.ping_device
         }
     
     async def handle_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -222,4 +224,108 @@ class MCPServerManager:
             "sensor_read_errors": metrics.sensor_read_errors,
             "last_activity": metrics.last_activity.isoformat(),
             "uptime_seconds": metrics.uptime_seconds
-        } 
+        }
+    
+    async def ping_device(self, device_id: str, timeout_seconds: int = 5) -> Dict[str, Any]:
+        """Ping a device to check if it's responsive
+        
+        Args:
+            device_id: ID of the device to ping
+            timeout_seconds: How long to wait for response (default: 5 seconds)
+            
+        Returns:
+            Dict with ping results including response time and status
+        """
+        import asyncio
+        import time
+        from .timezone_utils import utc_now, utc_isoformat
+        
+        # Check if device exists
+        device = self.device_manager.get_device(device_id)
+        if not device:
+            return {
+                "device_id": device_id,
+                "status": "not_found",
+                "message": f"Device {device_id} not found in system",
+                "timestamp": utc_isoformat()
+            }
+        
+        # Generate unique ping ID for tracking response
+        ping_id = f"ping_{int(time.time() * 1000)}"
+        start_time = time.time()
+        
+        # Prepare ping command
+        ping_command = {
+            "action": "ping",
+            "ping_id": ping_id,
+            "timestamp": utc_now().timestamp()
+        }
+        
+        # Check if bridge is available for MQTT communication
+        if not self.bridge or not hasattr(self.bridge, 'mqtt'):
+            return {
+                "device_id": device_id,
+                "status": "error",
+                "message": "MQTT bridge not available for ping",
+                "timestamp": utc_isoformat()
+            }
+        
+        # Record device state before ping
+        last_seen_before = device.last_seen
+        
+        try:
+            # Send ping command via MQTT
+            command_topic = f"devices/{device_id}/cmd"
+            success = await self.bridge.mqtt.publish(command_topic, ping_command)
+            
+            if not success:
+                return {
+                    "device_id": device_id,
+                    "status": "send_failed",
+                    "message": "Failed to send ping command to device",
+                    "timestamp": utc_isoformat()
+                }
+            
+            # Wait a moment and check if device responded
+            await asyncio.sleep(min(timeout_seconds, 3))  # Wait up to 3 seconds
+            
+            # Check if device's last_seen was updated (indicating it responded)
+            device_after = self.device_manager.get_device(device_id)
+            if device_after and device_after.last_seen > last_seen_before:
+                response_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+                
+                return {
+                    "device_id": device_id,
+                    "status": "online",
+                    "response_time_ms": round(response_time, 2),
+                    "message": f"Device responded to ping (detected via activity)",
+                    "ping_id": ping_id,
+                    "last_seen": utc_isoformat(device_after.last_seen),
+                    "timestamp": utc_isoformat()
+                }
+            else:
+                # Check current online status
+                if device.online:
+                    return {
+                        "device_id": device_id,
+                        "status": "assumed_online",
+                        "message": "Device marked as online but no ping response detected",
+                        "last_seen": utc_isoformat(device.last_seen) if device.last_seen else None,
+                        "timestamp": utc_isoformat()
+                    }
+                else:
+                    return {
+                        "device_id": device_id,
+                        "status": "offline",
+                        "message": "Device appears to be offline",
+                        "last_seen": utc_isoformat(device.last_seen) if device.last_seen else None,
+                        "timestamp": utc_isoformat()
+                    }
+                
+        except Exception as e:
+            return {
+                "device_id": device_id,
+                "status": "error",
+                "message": f"Ping failed: {str(e)}",
+                "timestamp": utc_isoformat()
+            } 

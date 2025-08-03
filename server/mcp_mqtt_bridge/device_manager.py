@@ -53,6 +53,8 @@ class DeviceManager:
         """Update device capabilities"""
         if device_id not in self.devices:
             self.devices[device_id] = IoTDevice(device_id=device_id)
+            # Set boot time when device first connects (for milliseconds-since-boot timestamps)
+            self.devices[device_id].boot_time = utc_now()
         
         device = self.devices[device_id]
         device.capabilities.sensors = capabilities_data.get("sensors", [])
@@ -68,6 +70,8 @@ class DeviceManager:
         """Update sensor reading for a device"""
         if device_id not in self.devices:
             self.devices[device_id] = IoTDevice(device_id=device_id)
+            # Set boot time when device first connects
+            self.devices[device_id].boot_time = utc_now()
         
         device = self.devices[device_id]
         
@@ -82,14 +86,17 @@ class DeviceManager:
             unit = None
             quality = None
         
-        # Create reading
+        # Create reading with proper timestamp handling
+        raw_timestamp = reading_data.get("timestamp", utc_now().timestamp())
+        timestamp = ensure_utc(raw_timestamp, device.boot_time)
+        
         reading = SensorReading(
             device_id=device_id,
             sensor_type=sensor_type,
             value=reading_value,
             unit=unit,
             quality=quality,
-            timestamp=from_timestamp_utc(reading_data.get("timestamp", utc_now().timestamp()))
+            timestamp=timestamp
         )
         
         device.sensor_readings[sensor_type] = reading
@@ -107,16 +114,21 @@ class DeviceManager:
         """Update actuator state for a device"""
         if device_id not in self.devices:
             self.devices[device_id] = IoTDevice(device_id=device_id)
+            # Set boot time when device first connects
+            self.devices[device_id].boot_time = utc_now()
         
         device = self.devices[device_id]
         state = state_data.get("value", "unknown")
         
-        # Create state record
+        # Create state record with proper timestamp handling
+        raw_timestamp = state_data.get("timestamp", utc_now().timestamp())
+        timestamp = ensure_utc(raw_timestamp, device.boot_time)
+        
         actuator_state = ActuatorState(
             device_id=device_id,
             actuator_type=actuator_type,
             state=state,
-            timestamp=from_timestamp_utc(state_data.get("timestamp", utc_now().timestamp()))
+            timestamp=timestamp
         )
         
         device.actuator_states[actuator_type] = actuator_state

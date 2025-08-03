@@ -45,6 +45,7 @@ class IoTDevice:
     capabilities: DeviceCapabilities = field(default_factory=DeviceCapabilities)
     online: bool = False
     last_seen: datetime = field(default_factory=utc_now)
+    boot_time: Optional[datetime] = None  # When device booted (for milliseconds-since-boot timestamps)
     sensor_readings: Dict[str, SensorReading] = field(default_factory=dict)
     actuator_states: Dict[str, ActuatorState] = field(default_factory=dict)
     errors: List[Dict[str, Any]] = field(default_factory=list)

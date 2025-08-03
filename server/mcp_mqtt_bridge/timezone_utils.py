@@ -87,11 +87,12 @@ def utc_minus_timedelta(delta: timedelta) -> datetime:
     return utc_now() - delta
 
 
-def ensure_utc(dt: Union[datetime, str, float, int, None]) -> datetime:
+def ensure_utc(dt: Union[datetime, str, float, int, None], device_boot_time: Optional[datetime] = None) -> datetime:
     """Ensure a value is a UTC datetime.
     
     Args:
         dt: Input value - can be datetime, ISO string, timestamp, or None
+        device_boot_time: Device boot time for converting milliseconds-since-boot timestamps
         
     Returns:
         UTC datetime object
@@ -109,7 +110,20 @@ def ensure_utc(dt: Union[datetime, str, float, int, None]) -> datetime:
             # Fallback to current time if parsing fails
             return utc_now()
     elif isinstance(dt, (int, float)):
-        return from_timestamp_utc(dt)
+        # Handle different timestamp formats
+        # ESP32 milliseconds since boot: 0 to ~49 days (4,294,967,295 ms = 49.7 days)
+        # Unix timestamps are typically > 1,000,000,000 (year 2001+)
+        
+        if dt >= 0 and dt < 1000000000:  # Less than year 2001 = likely milliseconds since boot
+            if device_boot_time is not None:
+                # Convert milliseconds to timedelta and add to device boot time
+                return device_boot_time + timedelta(milliseconds=dt)
+            else:
+                # No device boot time available, use current time
+                return utc_now()
+        else:
+            # Assume it's a Unix timestamp (seconds since epoch)
+            return from_timestamp_utc(dt)
     else:
         return utc_now()
 

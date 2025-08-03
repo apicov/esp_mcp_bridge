@@ -51,7 +51,7 @@ class MCPMQTTBridge:
         else:
             if use_fastmcp and not FASTMCP_AVAILABLE:
                 logger.warning("FastMCP requested but not available, falling back to standard MCP")
-            self.mcp_server = MCPServerManager(self.device_manager, self.database)
+            self.mcp_server = MCPServerManager(self.device_manager, self.database, self)
             self.using_fastmcp = False
         
         # State

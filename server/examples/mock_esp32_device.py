@@ -81,6 +81,7 @@ class MockESP32Device:
         self.actuator_states = {}
         self.last_sensor_update = {}
         self.uptime_start = datetime.now()
+        self.boot_time_ms = 0  # Simulate milliseconds since boot
         self.message_count = 0
         self.error_count = 0
         
@@ -104,6 +105,10 @@ class MockESP32Device:
         # Task management
         self.tasks = []
         self.running = False
+    
+    def _get_millis_since_boot(self) -> int:
+        """Get milliseconds since boot (simulates ESP32 esp_log_timestamp())"""
+        return int((datetime.now() - self.uptime_start).total_seconds() * 1000)
     
     def _initialize_sensors(self):
         """Initialize sensor values with realistic starting points"""
@@ -219,9 +224,18 @@ class MockESP32Device:
     def _handle_device_command_sync(self, command: Dict[str, Any]):
         """Sync version of device command handler"""
         try:
+            action = command.get("action", "").lower()
             cmd_type = command.get("command", "").lower()
             
-            if cmd_type == "restart":
+            if action == "ping":
+                # Handle ping command
+                ping_id = command.get("ping_id")
+                if ping_id:
+                    self._send_ping_response_sync(ping_id)
+                else:
+                    self.logger.warning("Received ping command without ping_id")
+                    
+            elif cmd_type == "restart":
                 self.logger.info("Simulating device restart...")
                 self._publish_status_sync()  # Use sync version
                 time.sleep(2)  # Simulate restart time
@@ -242,6 +256,29 @@ class MockESP32Device:
         except Exception as e:
             self.logger.error(f"Error handling device command: {e}")
     
+    def _send_ping_response_sync(self, ping_id: str):
+        """Send ping response (pong) back to server"""
+        try:
+            pong_response = {
+                "action": "pong",
+                "ping_id": ping_id,
+                "timestamp": self._get_millis_since_boot(),
+                "device_id": self.config.device_id,
+                "uptime_ms": self._get_millis_since_boot()
+            }
+            
+            # Send pong response via status topic
+            topic = f"devices/{self.config.device_id}/status"
+            result = self.client.publish(topic, json.dumps(pong_response))
+            
+            if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                self.logger.info(f"Sent ping response: {ping_id}")
+            else:
+                self.logger.error(f"Failed to send ping response: {result.rc}")
+                
+        except Exception as e:
+            self.logger.error(f"Error sending ping response: {e}")
+    
     def _publish_actuator_status_sync(self, actuator_name: str):
         """Sync version of publish actuator status"""
         try:
@@ -252,7 +289,7 @@ class MockESP32Device:
                 "actuator": actuator_name,
                 "state": actuator_state["state"],
                 "last_action": actuator_state["last_action"],
-                "timestamp": datetime.now().isoformat()
+                "timestamp": self._get_millis_since_boot()
             }
             
             topic = f"devices/{self.config.device_id}/actuators/{actuator_name}/status"
@@ -274,7 +311,7 @@ class MockESP32Device:
                 "uptime_start": self.uptime_start.isoformat(),
                 "current_sensors": len(self.config.sensors),
                 "current_actuators": len(self.config.actuators),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": self._get_millis_since_boot()
             }
             
             topic = f"devices/{self.config.device_id}/info"
@@ -367,7 +404,7 @@ class MockESP32Device:
                 for a in self.config.actuators
             ],
             "location": self.config.location,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": self._get_millis_since_boot()
         }
         
         topic = f"devices/{self.config.device_id}/capabilities"
@@ -387,7 +424,7 @@ class MockESP32Device:
             "cpu_usage": random.randint(*self.config.cpu_usage_range),
             "message_count": self.message_count,
             "error_count": self.error_count,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": self._get_millis_since_boot()
         }
         
         topic = f"devices/{self.config.device_id}/status"
@@ -421,7 +458,7 @@ class MockESP32Device:
                     for a in self.config.actuators
                 ],
                 "location": self.config.location,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": self._get_millis_since_boot()
             }
             
             topic = f"devices/{self.config.device_id}/capabilities"
@@ -444,7 +481,7 @@ class MockESP32Device:
                 "cpu_usage": random.randint(*self.config.cpu_usage_range),
                 "message_count": self.message_count,
                 "error_count": self.error_count,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": self._get_millis_since_boot()
             }
             
             topic = f"devices/{self.config.device_id}/status"
@@ -466,7 +503,7 @@ class MockESP32Device:
             "uptime_start": self.uptime_start.isoformat(),
             "current_sensors": len(self.config.sensors),
             "current_actuators": len(self.config.actuators),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": self._get_millis_since_boot()
         }
         
         topic = f"devices/{self.config.device_id}/info"
@@ -481,7 +518,7 @@ class MockESP32Device:
             "actuator": actuator_name,
             "state": actuator_state["state"],
             "last_action": actuator_state["last_action"],
-            "timestamp": datetime.now().isoformat()
+            "timestamp": self._get_millis_since_boot()
         }
         
         topic = f"devices/{self.config.device_id}/actuators/{actuator_name}/status"
@@ -551,7 +588,7 @@ class MockESP32Device:
                             "value": round(value, 2),
                             "unit": config.unit,
                             "quality": random.uniform(95, 100),  # Simulate data quality
-                            "timestamp": datetime.now().isoformat()
+                            "timestamp": self._get_millis_since_boot()
                         }
                         
                         topic = f"devices/{self.config.device_id}/sensors/{sensor_name}"
@@ -578,7 +615,7 @@ class MockESP32Device:
             "error_type": error_type,
             "message": message,
             "severity": severity,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": self._get_millis_since_boot()
         }
         
         topic = f"devices/{self.config.device_id}/error"

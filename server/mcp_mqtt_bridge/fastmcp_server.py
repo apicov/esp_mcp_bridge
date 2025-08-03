@@ -133,6 +133,11 @@ class FastMCPServer:
         async def get_device_metrics(device_id: str) -> Dict[str, Any]:
             """Get performance metrics for a specific device"""
             return await self._get_device_metrics(device_id)
+        
+        @self.mcp.tool()
+        async def ping_device(device_id: str, timeout_seconds: int = 5) -> Dict[str, Any]:
+            """Ping a device to check if it's responsive"""
+            return await self._ping_device(device_id, timeout_seconds)
     
     # Implementation methods (same logic as MCPServerManager)
     async def _list_devices(self, online_only: bool = False) -> List[Dict[str, Any]]:
@@ -360,12 +365,19 @@ class FastMCPServer:
             "uptime_seconds": metrics.uptime_seconds
         }
     
+    async def _ping_device(self, device_id: str, timeout_seconds: int = 5) -> Dict[str, Any]:
+        """Ping a device to check if it's responsive"""
+        # Delegate to the MCPServerManager implementation
+        from .mcp_server import MCPServerManager
+        temp_manager = MCPServerManager(self.device_manager, self.database_manager, self.bridge)
+        return await temp_manager.ping_device(device_id, timeout_seconds)
+    
     async def handle_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Handle incoming tool calls - compatibility method for fallback"""
         if self.mcp is None:
             # Fallback to original MCPServerManager behavior
             from .mcp_server import MCPServerManager
-            fallback = MCPServerManager(self.device_manager, self.database_manager)
+            fallback = MCPServerManager(self.device_manager, self.database_manager, self.bridge)
             return await fallback.handle_tool_call(tool_name, arguments)
         
         # FastMCP handles tool calls automatically through decorators
@@ -382,7 +394,8 @@ class FastMCPServer:
                     "available_tools": [
                         "list_devices", "read_sensor", "read_all_sensors",
                         "control_actuator", "get_device_info", "query_devices",
-                        "get_alerts", "get_system_status", "get_device_metrics"
+                        "get_alerts", "get_system_status", "get_device_metrics",
+                        "ping_device"
                     ]
                 }
         except Exception as e:
