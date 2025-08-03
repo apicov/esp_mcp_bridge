@@ -2,7 +2,7 @@
 
 Python server that bridges MQTT IoT devices with Large Language Models using the Model Context Protocol.
 
-## 📁 **Structure**
+## Structure
 
 ```
 server/
@@ -37,23 +37,23 @@ server/
     └── production.yaml.example # Production template
 ```
 
-## 🛠️ **Development Setup**
+## Development Setup
 
-### **Prerequisites**
+### Prerequisites
 - Python 3.11 or later
 - Poetry (recommended) or pip
 - MQTT broker (Mosquitto recommended)
 
-### **Installation**
+### Installation
 
-#### **Using Poetry (Recommended)**
+#### Using Poetry (Recommended)
 ```bash
 cd server
 poetry install
 poetry shell
 ```
 
-#### **Using pip**
+#### Using pip
 ```bash
 cd server
 python -m venv venv
@@ -62,16 +62,16 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-### **Development Dependencies**
+### Development Dependencies
 ```bash
 poetry install --with dev
 # or
 pip install -r requirements-dev.txt
 ```
 
-## 🚀 **Quick Start**
+## Quick Start
 
-### **Basic Usage**
+### Basic Usage
 ```bash
 # Start with default configuration
 python -m mcp_mqtt_bridge
@@ -80,7 +80,7 @@ python -m mcp_mqtt_bridge
 python -m mcp_mqtt_bridge --mqtt-broker localhost --db-path ./data/bridge.db
 ```
 
-### **Configuration**
+### Configuration
 ```bash
 # Copy example configuration
 cp config/production.yaml.example config/production.yaml
@@ -92,9 +92,9 @@ nano config/production.yaml
 python -m mcp_mqtt_bridge --config config/production.yaml
 ```
 
-## 📋 **API Overview**
+## API Overview
 
-### **MCP Tools Available to LLMs**
+### MCP Tools Available to LLMs
 
 1. **`list_devices`** - List connected IoT devices
    ```json
@@ -126,7 +126,7 @@ python -m mcp_mqtt_bridge --config config/production.yaml
    {"severity_min": 1, "device_id": "esp32_abc123"}
    ```
 
-### **Programmatic API**
+### Programmatic API
 ```python
 from mcp_mqtt_bridge import MCPMQTTBridge
 
@@ -150,34 +150,34 @@ success = bridge.mqtt.publish(
 )
 ```
 
-## 🧪 **Testing**
+## Testing
 
-### **Run All Tests**
+### Run All Tests
 ```bash
 pytest
 ```
 
-### **Unit Tests Only**
+### Unit Tests Only
 ```bash
 pytest tests/unit/
 ```
 
-### **Integration Tests**
+### Integration Tests
 ```bash
 # Requires MQTT broker running
 docker run -it -p 1883:1883 eclipse-mosquitto
 pytest tests/integration/
 ```
 
-### **Coverage Report**
+### Coverage Report
 ```bash
 pytest --cov=mcp_mqtt_bridge --cov-report=html
 open htmlcov/index.html
 ```
 
-## 🧪 **Testing with Mock Devices**
+## Testing with Mock Devices
 
-### **Mock ESP32 Device Simulator**
+### Mock ESP32 Device Simulator
 
 For testing without physical hardware, use the included mock ESP32 device simulator:
 
@@ -195,7 +195,7 @@ python examples/mock_esp32_device.py --broker mqtt.example.com --port 1883
 python examples/mock_esp32_device.py --config examples/mock_device_config.yaml
 ```
 
-### **💬 Chat Demo with OpenAI**
+### Chat Demo with OpenAI
 
 Experience the full power of AI-controlled IoT with our interactive chat demo:
 
@@ -226,7 +226,7 @@ This creates a complete end-to-end system where you can:
 
 See `CHAT_DEMO_README.md` for complete instructions and example conversations!
 
-### **Mock Device Features**
+### Mock Device Features
 - **Realistic Sensor Simulation**: Temperature, humidity, light, motion, air quality, etc.
 - **Actuator Control**: LEDs, relays, pumps, motors with state feedback
 - **Error Simulation**: Occasional sensor errors and connection issues
@@ -234,7 +234,7 @@ See `CHAT_DEMO_README.md` for complete instructions and example conversations!
 - **Multiple Device Types**: Kitchen, living room, bedroom, garage, garden scenarios
 - **MQTT Topic Compatibility**: Matches firmware MQTT topic structure
 
-### **Testing Scenarios**
+### Testing Scenarios
 
 Run the comprehensive test suite:
 
@@ -269,9 +269,9 @@ devices:
         supported_actions: [on, off, toggle]
 ```
 
-## 🔧 **Configuration**
+## Configuration
 
-### **Environment Variables**
+### Environment Variables
 ```bash
 export MQTT_BROKER=localhost
 export MQTT_PORT=1883
@@ -281,7 +281,7 @@ export DB_PATH=./data/bridge.db
 export LOG_LEVEL=INFO
 ```
 
-### **Configuration File (YAML)**
+### Configuration File (YAML)
 ```yaml
 mqtt:
   broker: localhost
@@ -308,9 +308,9 @@ security:
   key_path: ./certs/client.key
 ```
 
-## 📊 **Monitoring & Debugging**
+## Monitoring & Debugging
 
-### **Logging Configuration**
+### Logging Configuration
 ```python
 import logging
 
@@ -324,12 +324,12 @@ logging.basicConfig(
 )
 ```
 
-### **Health Check**
+### Health Check
 ```bash
 python scripts/health_check.py
 ```
 
-### **Database Management**
+### Database Management
 ```bash
 # View database statistics
 python -c "from mcp_mqtt_bridge.database import DatabaseManager; db = DatabaseManager(); print(db.get_database_stats())"
@@ -338,14 +338,14 @@ python -c "from mcp_mqtt_bridge.database import DatabaseManager; db = DatabaseMa
 python scripts/migrate_db.py --cleanup --retention-days 30
 ```
 
-## 🐳 **Docker Deployment**
+## Docker Deployment
 
-### **Build Image**
+### Build Image
 ```bash
 docker build -t mcp-mqtt-bridge .
 ```
 
-### **Run Container**
+### Run Container
 ```bash
 docker run -d \
   --name mcp-bridge \
@@ -356,7 +356,7 @@ docker run -d \
   mcp-mqtt-bridge
 ```
 
-### **Docker Compose**
+### Docker Compose
 ```yaml
 version: '3.8'
 services:
@@ -378,9 +378,9 @@ services:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
 ```
 
-## 🔒 **Security**
+## Security
 
-### **TLS/SSL Configuration**
+### TLS/SSL Configuration
 ```python
 bridge = MCPMQTTBridge(
     mqtt_broker="secure-broker.com",
@@ -392,7 +392,7 @@ bridge = MCPMQTTBridge(
 )
 ```
 
-### **Authentication**
+### Authentication
 ```python
 bridge = MCPMQTTBridge(
     mqtt_broker="broker.com",
@@ -401,26 +401,26 @@ bridge = MCPMQTTBridge(
 )
 ```
 
-## 📈 **Performance Tuning**
+## Performance Tuning
 
-### **Database Optimization**
+### Database Optimization
 - Regular cleanup of old data
 - Proper indexing on query columns
 - Connection pooling for high load
 
-### **MQTT Optimization**
+### MQTT Optimization
 - Appropriate QoS levels for message types
 - Connection keep-alive tuning
 - Message batching for high-frequency data
 
-### **Memory Management**
+### Memory Management
 - Limit device error history
 - Periodic cleanup of disconnected devices
 - Configurable retention policies
 
-## 🔗 **Integration Examples**
+## Integration Examples
 
-### **Claude Desktop**
+### Claude Desktop
 ```json
 {
   "mcp-servers": {
@@ -437,7 +437,7 @@ bridge = MCPMQTTBridge(
 }
 ```
 
-### **Custom MCP Client**
+### Custom MCP Client
 ```python
 from mcp import ClientSession
 from mcp.client.stdio import stdio_client
@@ -458,28 +458,28 @@ async def control_devices():
             })
 ```
 
-## 📝 **Development Guidelines**
+## Development Guidelines
 
-### **Code Style**
+### Code Style
 - Follow PEP 8
 - Use type hints
 - Docstrings for all public functions
 - Maximum line length: 100 characters
 
-### **Testing**
+### Testing
 - Unit tests for all modules
 - Integration tests for MQTT/database interactions
 - Mock external dependencies in unit tests
 - Aim for >90% code coverage
 
-### **Contributing**
+### Contributing
 1. Fork the repository
 2. Create a feature branch
 3. Write tests for new functionality
 4. Ensure all tests pass
 5. Submit a pull request
 
-## 🔗 **Related Documentation**
+## Related Documentation
 
 - [Model Context Protocol](https://modelcontextprotocol.io/)
 - [Paho MQTT Client](https://www.eclipse.org/paho/clients/python/)
