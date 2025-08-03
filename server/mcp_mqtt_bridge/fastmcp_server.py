@@ -60,9 +60,10 @@ logger = logging.getLogger(__name__)
 class FastMCPServer:
     """FastMCP-based MCP server for IoT device control"""
     
-    def __init__(self, device_manager, database_manager):
+    def __init__(self, device_manager, database_manager, bridge=None):
         self.device_manager = device_manager
         self.database_manager = database_manager
+        self.bridge = bridge
         
         if FastMCP is None:
             logger.warning("FastMCP not available, falling back to standard MCP implementation")

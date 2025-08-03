@@ -51,16 +51,13 @@ class MCPServerManager:
     
     async def list_devices(self, online_only: bool = False) -> List[Dict[str, Any]]:
         """List all connected IoT devices"""
-        devices = self.device_manager.get_all_devices()
+        devices = self.device_manager.get_all_devices(online_only)
         
         device_list = []
-        for device in devices.values():
-            if online_only and not device.is_online:
-                continue
-                
+        for device in devices:
             device_info = {
                 "device_id": device.device_id,
-                "is_online": device.is_online,
+                "is_online": device.online,
                 "last_seen": device.last_seen.isoformat() if device.last_seen else None,
                 "sensors": list(device.sensor_readings.keys()),
                 "actuators": list(device.actuator_states.keys()),
@@ -114,7 +111,7 @@ class MCPServerManager:
         if not device:
             raise ValueError(f"Device {device_id} not found")
         
-        if not device.is_online:
+        if not device.online:
             raise ValueError(f"Device {device_id} is offline")
         
         if actuator_type not in device.actuator_states:
@@ -149,7 +146,7 @@ class MCPServerManager:
         return [
             {
                 "device_id": device.device_id,
-                "is_online": device.is_online,
+                "is_online": device.online,
                 "matching_sensors": [s for s in device.sensor_readings.keys() 
                                    if not sensor_type or s == sensor_type],
                 "matching_actuators": [a for a in device.actuator_states.keys()
@@ -171,7 +168,7 @@ class MCPServerManager:
         else:
             # Get events for all devices
             events = []
-            for device in self.device_manager.get_all_devices().values():
+            for device in self.device_manager.get_all_devices():
                 device_events = self.database_manager.get_device_events(
                     device.device_id, since, severity_min
                 )
@@ -193,7 +190,7 @@ class MCPServerManager:
         devices = self.device_manager.get_all_devices()
         
         total_devices = len(devices)
-        online_devices = sum(1 for d in devices.values() if d.is_online)
+        online_devices = sum(1 for d in devices if d.online)
         
         # Get database stats
         db_stats = self.database_manager.get_database_stats()

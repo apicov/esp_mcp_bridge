@@ -101,6 +101,7 @@ class DeviceManager:
         
         device.sensor_readings[sensor_type] = reading
         device.last_seen = utc_now()
+        device.online = True  # Mark device as online when it sends sensor data
         
         # Update metrics
         if device_id not in self.device_metrics:

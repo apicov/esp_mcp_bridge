@@ -46,7 +46,7 @@ class MCPMQTTBridge:
         # Initialize MCP server (prefer FastMCP if available and requested)
         if use_fastmcp and FASTMCP_AVAILABLE:
             logger.info("Using FastMCP server implementation")
-            self.mcp_server = FastMCPServer(self.device_manager, self.database)
+            self.mcp_server = FastMCPServer(self.device_manager, self.database, self)
             self.using_fastmcp = True
         else:
             if use_fastmcp and not FASTMCP_AVAILABLE:
