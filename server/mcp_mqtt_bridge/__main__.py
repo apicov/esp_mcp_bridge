@@ -155,8 +155,10 @@ async def main():
         
         # Start MCP server if enabled
         http_server = None
+        logger.info(f"DEBUG: enable_mcp_server = {args.enable_mcp_server}")
         if args.enable_mcp_server:
             try:
+                logger.info("DEBUG: Entering HTTP server startup block")
                 from .mcp_http_server import MCPHTTPServer
                 logger.info(f"Starting MCP HTTP server on {args.mcp_host}:{args.mcp_port}")
                 
