@@ -19,6 +19,10 @@ class DatabaseManager:
         self.db_path = db_path
         self.init_database()
     
+    async def initialize(self):
+        """Async initialize method for compatibility"""
+        self.init_database()
+    
     def init_database(self):
         """Initialize database schema"""
         try:

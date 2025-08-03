@@ -8,13 +8,18 @@ that can control your IoT devices through the MCP protocol.
 Usage:
     export OPENAI_API_KEY="your-api-key-here"
     python chat_with_devices.py
+    
+    # For remote MCP bridge server:
+    python chat_with_devices.py --remote-host 192.168.1.100
+    python chat_with_devices.py --remote-host example.com --remote-port 8000
 
 Requirements:
     - OpenAI API key
-    - MCP-MQTT bridge running
+    - MCP-MQTT bridge running (local or remote)
     - Mock devices running
 """
 
+import argparse
 import asyncio
 import json
 import logging
@@ -41,13 +46,17 @@ except ImportError:
 
 
 class IoTChatInterface:
-    def __init__(self, openai_api_key: str):
+    def __init__(self, openai_api_key: str, remote_host: Optional[str] = None, remote_port: int = 8000, remote_path: str = "/path/to/esp_mcp_bridge/server"):
         """Initialize the chat interface with OpenAI and MCP connections."""
         self.openai_client = OpenAI(api_key=openai_api_key)
         self.mcp_session: Optional[ClientSession] = None
         self.available_tools: List[Dict] = []
         self.conversation_history: List[Dict] = []
         self._stdio_context = None
+        self.remote_host = remote_host
+        self.remote_port = remote_port
+        self.remote_path = remote_path
+        self.is_remote = remote_host is not None
         
         # System prompt that tells the LLM about its IoT capabilities
         self.system_prompt = """You are an AI assistant that can control IoT devices through an MCP (Model Context Protocol) interface.
@@ -95,8 +104,19 @@ Always be specific about which device and component you're interacting with."""
     async def initialize_mcp(self) -> bool:
         """Initialize connection to the MCP bridge server."""
         try:
-            print("🔗 Connecting to MCP bridge...")
-            
+            if self.is_remote:
+                print(f"🔗 Connecting to remote MCP bridge at {self.remote_host}:{self.remote_port}...")
+                return await self._initialize_remote_mcp()
+            else:
+                print("🔗 Connecting to local MCP bridge...")
+                return await self._initialize_local_mcp()
+        except Exception as e:
+            print(f"❌ Failed to initialize MCP connection: {e}")
+            return False
+    
+    async def _initialize_local_mcp(self) -> bool:
+        """Initialize connection to local MCP bridge components."""
+        try:
             # Import the bridge components directly
             from mcp_mqtt_bridge.bridge import MCPMQTTBridge
             from mcp_mqtt_bridge.database import DatabaseManager
@@ -218,13 +238,64 @@ Always be specific about which device and component you're interacting with."""
                 }
             ]
             
-            print(f"✅ Connected to MCP bridge database")
+            print(f"✅ Connected to local MCP bridge database")
             print(f"🛠️  Available tools: {', '.join(tool['function']['name'] for tool in self.available_tools)}")
             return True
             
         except Exception as e:
-            print(f"❌ Failed to connect to MCP bridge: {e}")
+            print(f"❌ Failed to connect to local MCP bridge: {e}")
             print("   Make sure the bridge is running with: python -m mcp_mqtt_bridge")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    async def _initialize_remote_mcp(self) -> bool:
+        """Initialize connection to remote MCP bridge server via stdio."""
+        try:
+            # For remote connections, we use SSH to connect to the remote server
+            # and run the MCP bridge in stdio mode
+            import subprocess
+            
+            # Create stdio server parameters for remote connection
+            server_params = StdioServerParameters(
+                command="ssh",
+                args=[
+                    f"{self.remote_host}",
+                    f"cd {self.remote_path} && python -m mcp_mqtt_bridge"
+                ]
+            )
+            
+            # Connect via stdio
+            self._stdio_context = stdio_client(server_params)
+            read, write = await self._stdio_context.__aenter__()
+            
+            # Create MCP session
+            self.mcp_session = ClientSession(read, write)
+            await self.mcp_session.initialize()
+            
+            # Get available tools from the remote server
+            tools_result = await self.mcp_session.list_tools()
+            
+            # Convert MCP tools to OpenAI function calling format
+            self.available_tools = []
+            for tool in tools_result.tools:
+                self.available_tools.append({
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.inputSchema if hasattr(tool, 'inputSchema') else {"type": "object", "properties": {}}
+                    }
+                })
+            
+            print(f"✅ Connected to remote MCP bridge at {self.remote_host}")
+            print(f"🛠️  Available tools: {', '.join(tool['function']['name'] for tool in self.available_tools)}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Failed to connect to remote MCP bridge: {e}")
+            print(f"   Make sure SSH access is configured for {self.remote_host}")
+            print("   And the bridge is installed on the remote server")
             import traceback
             traceback.print_exc()
             return False
@@ -242,6 +313,12 @@ Always be specific about which device and component you're interacting with."""
         try:
             print(f"🔧 Calling {tool_name} with args: {arguments}")
             
+            # If using remote connection, delegate to MCP session
+            if self.is_remote and self.mcp_session:
+                result = await self.mcp_session.call_tool(tool_name, arguments)
+                return result.content[0].text if result.content else "No result"
+            
+            # Local implementation
             if tool_name == "list_devices":
                 online_only = arguments.get("online_only", False)
                 devices = self.database.get_all_devices()
@@ -542,8 +619,42 @@ Always be specific about which device and component you're interacting with."""
             await self.mcp_session.close()
 
 
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Chat with IoT devices via MCP bridge",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python chat_with_devices.py                     # Local connection
+  python chat_with_devices.py --remote-host 192.168.1.100
+  python chat_with_devices.py --remote-host example.com --remote-port 8000
+        """
+    )
+    
+    parser.add_argument(
+        "--remote-host",
+        help="Remote host running the MCP bridge server"
+    )
+    parser.add_argument(
+        "--remote-port", 
+        type=int,
+        default=8000,
+        help="Remote port for MCP bridge (default: 8000)"
+    )
+    parser.add_argument(
+        "--remote-path",
+        default="/path/to/esp_mcp_bridge/server",
+        help="Path to the MCP bridge on remote host"
+    )
+    
+    return parser.parse_args()
+
 async def main():
     """Main function to run the chat interface."""
+    # Parse command line arguments
+    args = parse_args()
+    
     # Check for OpenAI API key
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -553,7 +664,7 @@ async def main():
         return 1
     
     # Create chat interface
-    chat = IoTChatInterface(api_key)
+    chat = IoTChatInterface(api_key, remote_host=args.remote_host, remote_port=args.remote_port, remote_path=args.remote_path)
     
     # Set up signal handler for graceful shutdown
     def signal_handler(signum, frame):

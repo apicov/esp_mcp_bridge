@@ -28,3 +28,7 @@ pydantic>=2.0.0
 
 # Mock device dependencies
 PyYAML>=6.0.0 
+
+# HTTP server for remote MCP connections
+aiohttp>=3.8.0
+aiohttp-cors>=0.7.0

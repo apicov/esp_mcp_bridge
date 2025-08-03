@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-green.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-1.0+-purple.svg)](https://modelcontextprotocol.io/)
 
-A production-ready system that bridges ESP32 IoT devices with Large Language Models using MQTT and the Model Context Protocol (MCP). Enables natural language control and monitoring of IoT devices through AI assistants.
+A production-ready system that bridges ESP32 IoT devices with Large Language Models using MQTT and the Model Context Protocol (MCP). Features FastMCP support for high-performance communication, remote server capabilities, and natural language control of IoT devices through AI assistants.
 
 ## Project Structure
 
@@ -87,21 +87,37 @@ idf.py menuconfig
 idf.py build flash monitor
 ```
 
-### 5. Try the Chat Demo
+### 5. Try the Chat Demos
+
+#### FastMCP Chat (Recommended)
 ```bash
-# Install OpenAI dependencies
+# Install dependencies
 cd server
-pip install -r requirements-chat.txt
+pip install -r requirements.txt
+pip install -r requirements-remote.txt
 
 # Set OpenAI API key
 export OPENAI_API_KEY="your-api-key-here"
 
-# Start complete demo (includes broker, mock devices, and chat interface)
+# Start FastMCP chat with mock devices
+python start_fastmcp_chat.py --with-devices
+
+# Or original chat demo
 python start_chat_demo.py
 ```
 
-### 6. LLM Integration (Claude Desktop)
-Add to your Claude Desktop configuration:
+#### Remote Chat (Server + Desktop)
+```bash
+# On server (Raspberry Pi, VPS, etc.)
+python -m mcp_mqtt_bridge --enable-mcp-server --mcp-host 0.0.0.0
+
+# On your desktop
+python remote_fastmcp_chat.py --remote-host your-server-ip
+```
+
+### 6. LLM Integration
+
+#### Claude Desktop (Standard MCP)
 ```json
 {
   "mcp-servers": {
@@ -115,24 +131,55 @@ Add to your Claude Desktop configuration:
 }
 ```
 
+#### FastMCP Integration
+```bash
+# Use FastMCP bridge server for direct integration
+python fastmcp_bridge_server.py --stdio
+
+# Or programmatic client
+python fastmcp_client_example.py
+```
+
 ## Documentation
 
+### Core Documentation
 - **[Comprehensive Code Guide](ESP32_MCP_BRIDGE_COMPREHENSIVE_GUIDE.md)** - Complete architecture and code analysis
 - **[Getting Started Guide](docs/setup_guide.md)** - Complete setup instructions
 - **[ESP32 Firmware Guide](firmware/README.md)** - ESP32 development
 - **[Python Server Guide](server/README.md)** - MCP server setup
-- **[Chat Demo Guide](server/CHAT_DEMO_README.md)** - OpenAI chat interface
-- **[Architecture Overview](docs/enhanced-features.md)** - System design
 - **[Developer Guide](CLAUDE.md)** - Development commands and workflows
+
+### Chat and Remote Features
+- **[FastMCP Chat Guide](server/FASTMCP_CHAT_README.md)** - FastMCP chat interface
+- **[Remote Setup Guide](server/REMOTE_SETUP_GUIDE.md)** - Server and desktop setup
+- **[MQTT Configuration Guide](server/MQTT_CONFIGURATION_GUIDE.md)** - Custom ports and security
+
+### Legacy and Examples
+- **[Original Chat Demo](server/CHAT_DEMO_README.md)** - OpenAI chat interface
+- **[Architecture Overview](docs/enhanced-features.md)** - System design
 
 ## Features
 
+### Core Features
 - **Enterprise Security**: TLS/SSL, device authentication, certificates
 - **Real-time Monitoring**: Metrics, alerts, device health tracking
 - **High Performance**: Batch operations, streaming, optimization
 - **Production Ready**: Error recovery, logging, diagnostics
 - **Modular Design**: Clean architecture, extensible components
-- **Easy Integration**: Simple APIs, comprehensive examples
+
+### FastMCP Features
+- **FastMCP Support**: High-performance MCP implementation
+- **Remote Connectivity**: Server-desktop architecture
+- **Parallel Operations**: Simultaneous device control
+- **Custom MQTT Ports**: Configurable broker settings
+- **Multiple Chat Interfaces**: Local and remote options
+
+### Integration Options
+- **OpenAI Chat**: Natural language device control
+- **Claude Desktop**: Direct MCP integration
+- **REST API**: HTTP endpoints for web integration
+- **WebSocket**: Real-time communication
+- **Programmatic Client**: Python SDK for automation
 
 ## Use Cases
 
@@ -180,17 +227,20 @@ idf.py menuconfig
 
 ### Common Command Line Options
 ```bash
-# Custom MQTT broker
-python -m mcp_mqtt_bridge --mqtt-broker 192.168.1.100
+# Custom MQTT broker and port
+python -m mcp_mqtt_bridge --mqtt-broker 192.168.1.100 --mqtt-port 1884
 
 # With authentication
 python -m mcp_mqtt_bridge --mqtt-username user --mqtt-password pass
 
-# Custom database location
-python -m mcp_mqtt_bridge --db-path /tmp/test.db
+# Remote server with FastMCP
+python -m mcp_mqtt_bridge --enable-mcp-server --mcp-host 0.0.0.0 --use-fastmcp
 
-# Longer device timeout
-python -m mcp_mqtt_bridge --device-timeout 10
+# FastMCP bridge server
+python fastmcp_bridge_server.py --mqtt-broker localhost --mqtt-port 1883
+
+# Remote FastMCP chat
+python remote_fastmcp_chat.py --remote-host 192.168.1.100
 
 # All options
 python -m mcp_mqtt_bridge --help

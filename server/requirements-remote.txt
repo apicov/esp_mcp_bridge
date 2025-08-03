@@ -1,0 +1,17 @@
+# Remote FastMCP Connection Dependencies
+# Install with: pip install -r requirements-remote.txt
+
+# HTTP client for remote connections
+aiohttp>=3.8.0
+
+# WebSocket support
+websockets>=11.0.0
+
+# Enhanced async HTTP session management
+aiohttp-cors>=0.7.0
+
+# For better error handling and retries
+tenacity>=8.2.0
+
+# Optional: for monitoring and metrics
+psutil>=5.9.0

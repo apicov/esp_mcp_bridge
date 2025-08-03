@@ -1,6 +1,6 @@
 # MCP-MQTT Bridge Server
 
-Python server that bridges MQTT IoT devices with Large Language Models using the Model Context Protocol.
+Python server that bridges MQTT IoT devices with Large Language Models using the Model Context Protocol. Features FastMCP support for high-performance communication and remote server capabilities.
 
 ## Structure
 
@@ -30,7 +30,14 @@ server/
 │   └── health_check.py         # System health check
 ├── chat_with_devices.py        # OpenAI chat interface
 ├── start_chat_demo.py          # Complete demo launcher
+├── fastmcp_chat.py             # FastMCP chat interface
+├── remote_fastmcp_chat.py      # Remote FastMCP client
+├── fastmcp_bridge_server.py    # Standalone FastMCP server
+├── start_fastmcp_chat.py       # FastMCP demo launcher
 ├── CHAT_DEMO_README.md         # Chat demo documentation
+├── FASTMCP_CHAT_README.md      # FastMCP chat guide
+├── REMOTE_SETUP_GUIDE.md       # Remote setup guide
+├── MQTT_CONFIGURATION_GUIDE.md # MQTT configuration guide
 └── config/
     ├── default.yaml            # Default configuration
     ├── development.yaml        # Development settings
@@ -76,8 +83,26 @@ pip install -r requirements-dev.txt
 # Start with default configuration
 python -m mcp_mqtt_bridge
 
-# Or with custom settings
-python -m mcp_mqtt_bridge --mqtt-broker localhost --db-path ./data/bridge.db
+# With FastMCP support
+python -m mcp_mqtt_bridge --use-fastmcp
+
+# Remote server with HTTP access
+python -m mcp_mqtt_bridge --enable-mcp-server --mcp-host 0.0.0.0
+
+# Custom MQTT broker and port
+python -m mcp_mqtt_bridge --mqtt-broker 192.168.1.100 --mqtt-port 1884
+```
+
+### FastMCP Usage
+```bash
+# FastMCP bridge server (stdio mode)
+python fastmcp_bridge_server.py --stdio
+
+# FastMCP chat interface
+python start_fastmcp_chat.py --with-devices
+
+# Remote FastMCP client
+python remote_fastmcp_chat.py --remote-host your-server-ip
 ```
 
 ### Configuration
@@ -106,48 +131,77 @@ python -m mcp_mqtt_bridge --config config/production.yaml
    {"device_id": "esp32_abc123", "sensor_type": "temperature", "history_minutes": 60}
    ```
 
-3. **`control_actuator`** - Control device actuators
+3. **`read_all_sensors`** - Read multiple sensors at once (FastMCP)
+   ```json
+   {"device_ids": ["esp32_kitchen", "esp32_living_room"], "sensor_types": ["temperature", "humidity"]}
+   ```
+
+4. **`control_actuator`** - Control device actuators
    ```json
    {"device_id": "esp32_abc123", "actuator_type": "led", "action": "toggle"}
    ```
 
-4. **`get_device_info`** - Detailed device information
+5. **`get_device_info`** - Detailed device information
    ```json
    {"device_id": "esp32_abc123"}
    ```
 
-5. **`query_devices`** - Search devices by capabilities
+6. **`query_devices`** - Search devices by capabilities
    ```json
    {"sensor_type": "temperature", "online_only": true}
    ```
 
-6. **`get_alerts`** - Recent errors and alerts
+7. **`get_alerts`** - Recent errors and alerts
    ```json
    {"severity_min": 1, "device_id": "esp32_abc123"}
    ```
 
+8. **`get_system_status`** - Overall system status
+   ```json
+   {}
+   ```
+
+9. **`get_device_metrics`** - Device performance metrics
+   ```json
+   {"device_id": "esp32_abc123"}
+   ```
+
 ### Programmatic API
+
+#### Standard Bridge API
 ```python
 from mcp_mqtt_bridge import MCPMQTTBridge
 
-# Create bridge instance
+# Create bridge instance with FastMCP
 bridge = MCPMQTTBridge(
     mqtt_broker="localhost",
     mqtt_port=1883,
-    db_path="bridge.db"
+    db_path="bridge.db",
+    use_fastmcp=True
 )
 
 # Start the bridge
 await bridge.start()
 
-# Get device list
-devices = bridge.device_manager.get_all_devices()
+# Call MCP tools
+result = await bridge.call_mcp_tool("list_devices", {})
+sensors = await bridge.call_mcp_tool("read_all_sensors", {})
+```
 
-# Publish command to device
-success = bridge.mqtt.publish(
-    "devices/esp32_abc123/actuators/led/cmd",
-    {"action": "toggle"}
-)
+#### FastMCP Client API
+```python
+from fastmcp_client_example import FastMCPClient
+
+# Create remote client
+client = FastMCPClient()
+await client.connect()
+
+# Use convenience methods
+devices = await client.list_devices()
+sensor_data = await client.read_all_sensors()
+control_result = await client.control_actuator("esp32_kitchen", "led", "on")
+
+await client.disconnect()
 ```
 
 ## Testing

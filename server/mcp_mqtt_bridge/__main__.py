@@ -78,6 +78,35 @@ def parse_args():
         help="Logging level (default: INFO)"
     )
     
+    # MCP Server settings
+    parser.add_argument(
+        "--mcp-port",
+        type=int,
+        default=int(os.getenv("MCP_PORT", "8000")),
+        help="MCP server port for remote connections (default: 8000)"
+    )
+    parser.add_argument(
+        "--mcp-host",
+        default=os.getenv("MCP_HOST", "0.0.0.0"),
+        help="MCP server host to bind to (default: 0.0.0.0)"
+    )
+    parser.add_argument(
+        "--enable-mcp-server",
+        action="store_true",
+        help="Enable MCP server for remote connections"
+    )
+    parser.add_argument(
+        "--use-fastmcp",
+        action="store_true",
+        default=True,
+        help="Use FastMCP implementation (default: True)"
+    )
+    parser.add_argument(
+        "--stdio",
+        action="store_true",
+        help="Run FastMCP in stdio mode for client integration"
+    )
+    
     return parser.parse_args()
 
 async def main():
@@ -105,11 +134,59 @@ async def main():
             mqtt_username=args.mqtt_username,
             mqtt_password=args.mqtt_password,
             db_path=str(db_path),
-            device_timeout_minutes=args.device_timeout
+            device_timeout_minutes=args.device_timeout,
+            use_fastmcp=args.use_fastmcp
         )
+        
+        # Handle stdio mode for FastMCP
+        if args.stdio:
+            logger.info("Running FastMCP bridge in stdio mode")
+            
+            # Initialize but don't start full bridge 
+            await bridge.database.initialize()
+            await bridge.mqtt.connect()
+            
+            # Run FastMCP stdio server
+            await bridge.serve_mcp_stdio()
+            return 0
         
         # Start the bridge
         await bridge.start()
+        
+        # Start MCP server if enabled
+        mcp_task = None
+        if args.enable_mcp_server:
+            try:
+                from .fast_mcp_server import run_mcp_server
+                logger.info(f"Starting MCP server on {args.mcp_host}:{args.mcp_port}")
+                
+                # Run MCP server in background
+                mcp_task = asyncio.create_task(
+                    run_mcp_server(bridge, args.mcp_host, args.mcp_port)
+                )
+                
+                # Wait for server to start
+                await asyncio.sleep(2)
+                logger.info("MCP server started successfully")
+                
+            except ImportError as e:
+                logger.error(f"Failed to start MCP server: {e}")
+                logger.error("Make sure MCP is installed: pip install mcp")
+                return 1
+            except Exception as e:
+                logger.error(f"Error starting MCP server: {e}")
+                return 1
+        
+        # Keep running
+        if args.enable_mcp_server and mcp_task:
+            logger.info("Bridge and MCP server running... Press Ctrl+C to stop")
+            await asyncio.gather(
+                asyncio.Event().wait(),  # Keep bridge running
+                mcp_task
+            )
+        else:
+            logger.info("Bridge running... Press Ctrl+C to stop")
+            await asyncio.Event().wait()
         
     except KeyboardInterrupt:
         logger.info("Received interrupt signal, shutting down...")

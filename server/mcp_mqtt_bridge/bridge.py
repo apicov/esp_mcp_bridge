@@ -14,6 +14,12 @@ from .mqtt_manager import MQTTManager
 from .database import DatabaseManager  
 from .device_manager import DeviceManager
 from .mcp_server import MCPServerManager
+try:
+    from .fastmcp_server import FastMCPServer
+    FASTMCP_AVAILABLE = True
+except ImportError:
+    FastMCPServer = None
+    FASTMCP_AVAILABLE = False
 from .data_models import SensorReading, ActuatorState
 
 logger = logging.getLogger(__name__)
@@ -27,13 +33,24 @@ class MCPMQTTBridge:
                  mqtt_username: Optional[str] = None,
                  mqtt_password: Optional[str] = None,
                  db_path: str = "bridge.db",
-                 device_timeout_minutes: int = 5):
+                 device_timeout_minutes: int = 5,
+                 use_fastmcp: bool = True):
         
         # Initialize components
         self.database = DatabaseManager(db_path)
         self.device_manager = DeviceManager(device_timeout_minutes)
         self.mqtt = MQTTManager(mqtt_broker, mqtt_port, mqtt_username, mqtt_password)
-        self.mcp_server = MCPServerManager(self.device_manager, self.database)
+        
+        # Initialize MCP server (prefer FastMCP if available and requested)
+        if use_fastmcp and FASTMCP_AVAILABLE:
+            logger.info("Using FastMCP server implementation")
+            self.mcp_server = FastMCPServer(self.device_manager, self.database)
+            self.using_fastmcp = True
+        else:
+            if use_fastmcp and not FASTMCP_AVAILABLE:
+                logger.warning("FastMCP requested but not available, falling back to standard MCP")
+            self.mcp_server = MCPServerManager(self.device_manager, self.database)
+            self.using_fastmcp = False
         
         # State
         self.running = False
@@ -62,7 +79,7 @@ class MCPMQTTBridge:
         logger.info("Starting MCP-MQTT Bridge...")
         
         # Initialize database
-
+        await self.database.initialize()
         
         # Connect to MQTT
         await self.mqtt.connect()
@@ -297,4 +314,33 @@ class MCPMQTTBridge:
             # Increment sent message count
             self.device_manager.increment_sent_messages(device_id)
         
-        return success 
+        return success
+    
+    async def call_mcp_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
+        """Call MCP tool and return result"""
+        result = await self.mcp_server.handle_tool_call(tool_name, arguments)
+        
+        # If the tool call was successful and involves actuator control, send the actual command
+        if (result.get("success") and tool_name == "control_actuator" and 
+            "device_id" in arguments and "actuator_type" in arguments):
+            await self.send_actuator_command(
+                arguments["device_id"],
+                arguments["actuator_type"], 
+                arguments["action"],
+                arguments.get("value")
+            )
+        
+        return result.get("data") if result.get("success") else result
+    
+    def get_fastmcp_server(self):
+        """Get the FastMCP server instance for direct stdio serving"""
+        if self.using_fastmcp and hasattr(self.mcp_server, 'get_server'):
+            return self.mcp_server.get_server()
+        return None
+    
+    async def serve_mcp_stdio(self):
+        """Serve MCP over stdio (for FastMCP clients)"""
+        if self.using_fastmcp and hasattr(self.mcp_server, 'serve_stdio'):
+            await self.mcp_server.serve_stdio()
+        else:
+            raise RuntimeError("FastMCP not available or not in use") 
