@@ -84,18 +84,29 @@ class MCPMQTTBridge:
         # Connect to MQTT
         await self.mqtt.connect()
         
-        # Start background tasks
+        # Start background tasks without blocking
         self.running = True
-        await asyncio.gather(
-            self._device_timeout_task(),
-            self._metrics_task(),
-            self._cleanup_task()
-        )
+        self._background_tasks = []
+        self._background_tasks.append(asyncio.create_task(self._device_timeout_task()))
+        self._background_tasks.append(asyncio.create_task(self._metrics_task()))
+        self._background_tasks.append(asyncio.create_task(self._cleanup_task()))
+        
+        logger.info("Bridge background tasks started")
     
     async def stop(self):
         """Stop the bridge"""
         logger.info("Stopping MCP-MQTT Bridge...")
         self.running = False
+        
+        # Cancel background tasks
+        if hasattr(self, '_background_tasks'):
+            for task in self._background_tasks:
+                if not task.done():
+                    task.cancel()
+            
+            # Wait for tasks to finish cancelling
+            await asyncio.gather(*self._background_tasks, return_exceptions=True)
+        
         await self.mqtt.disconnect()
     
     async def _device_timeout_task(self):
