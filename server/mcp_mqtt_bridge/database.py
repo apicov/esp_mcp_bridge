@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 from .data_models import SensorReading
 from .timezone_utils import utc_now, utc_minus_timedelta, utc_isoformat, ensure_utc
+from .sql_validator import SQLValidator, SQLValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ class DatabaseManager:
     
     def __init__(self, db_path: str = "iot_bridge.db"):
         self.db_path = db_path
+        self.sql_validator = SQLValidator(max_rows=10000, timeout_seconds=30)
         self.init_database()
     
     async def initialize(self):
@@ -614,4 +616,223 @@ class DatabaseManager:
                 ]
         except Exception as e:
             logger.error(f"Failed to get online devices: {e}")
-            return [] 
+            return []
+
+    def execute_query(self, query: str,
+                     max_rows: Optional[int] = None,
+                     validate: bool = True) -> Dict[str, Any]:
+        """
+        Execute a custom SQL query with validation
+
+        Args:
+            query: SQL query to execute
+            max_rows: Maximum rows to return (overrides default)
+            validate: Whether to validate query (should always be True in production)
+
+        Returns:
+            Dictionary with query results and metadata
+
+        Raises:
+            SQLValidationError: If query validation fails
+            Exception: If query execution fails
+        """
+        try:
+            # Validate query
+            if validate:
+                if max_rows:
+                    validator = SQLValidator(max_rows=max_rows)
+                    validated_query, metadata = validator.validate_query(query)
+                else:
+                    validated_query, metadata = self.sql_validator.validate_query(query)
+            else:
+                validated_query = query
+                metadata = {"validated": False}
+
+            # Execute query with timeout
+            with sqlite3.connect(self.db_path, timeout=metadata.get('timeout_seconds', 30)) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute(validated_query)
+
+                # Fetch results
+                rows = cursor.fetchall()
+
+                # Convert to list of dicts
+                results = [dict(row) for row in rows]
+
+                return {
+                    "success": True,
+                    "query": validated_query,
+                    "row_count": len(results),
+                    "columns": list(rows[0].keys()) if rows else [],
+                    "data": results,
+                    "metadata": metadata
+                }
+
+        except SQLValidationError as e:
+            logger.warning(f"Query validation failed: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "error_type": "validation_error",
+                "query": query
+            }
+        except sqlite3.Error as e:
+            logger.error(f"Database error executing query: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "error_type": "database_error",
+                "query": query
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error executing query: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "error_type": "unknown_error",
+                "query": query
+            }
+
+    def get_database_schema(self) -> Dict[str, Any]:
+        """
+        Get database schema information
+
+        Returns:
+            Dictionary with tables and their columns
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # Get all tables
+                cursor.execute("""
+                    SELECT name FROM sqlite_master
+                    WHERE type='table' AND name NOT LIKE 'sqlite_%'
+                    ORDER BY name
+                """)
+                tables = [row[0] for row in cursor.fetchall()]
+
+                schema = {}
+                for table in tables:
+                    # Get column info for each table
+                    cursor.execute(f"PRAGMA table_info({table})")
+                    columns = []
+                    for col in cursor.fetchall():
+                        columns.append({
+                            "name": col[1],
+                            "type": col[2],
+                            "not_null": bool(col[3]),
+                            "default": col[4],
+                            "primary_key": bool(col[5])
+                        })
+
+                    # Get row count
+                    cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                    row_count = cursor.fetchone()[0]
+
+                    schema[table] = {
+                        "columns": columns,
+                        "row_count": row_count
+                    }
+
+                return {
+                    "success": True,
+                    "database": self.db_path,
+                    "table_count": len(tables),
+                    "tables": schema
+                }
+
+        except Exception as e:
+            logger.error(f"Failed to get database schema: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    def get_query_examples(self) -> List[Dict[str, str]]:
+        """
+        Get example queries for common use cases
+
+        Returns:
+            List of example queries with descriptions
+        """
+        return [
+            {
+                "name": "Recent sensor readings",
+                "description": "Get the last 100 sensor readings from all devices",
+                "query": "SELECT * FROM sensor_readings ORDER BY timestamp DESC LIMIT 100"
+            },
+            {
+                "name": "Device sensor summary",
+                "description": "Get latest reading for each sensor type per device",
+                "query": """
+                    SELECT device_id, sensor_type, value, unit, timestamp
+                    FROM sensor_readings sr1
+                    WHERE timestamp = (
+                        SELECT MAX(timestamp)
+                        FROM sensor_readings sr2
+                        WHERE sr2.device_id = sr1.device_id
+                        AND sr2.sensor_type = sr1.sensor_type
+                    )
+                    ORDER BY device_id, sensor_type
+                """
+            },
+            {
+                "name": "Temperature history",
+                "description": "Get temperature readings for a specific device in the last hour",
+                "query": """
+                    SELECT value, unit, timestamp
+                    FROM sensor_readings
+                    WHERE device_id = 'esp32_abc123'
+                    AND sensor_type = 'temperature'
+                    AND timestamp > datetime('now', '-1 hour')
+                    ORDER BY timestamp DESC
+                """
+            },
+            {
+                "name": "Average sensor values",
+                "description": "Get average value per sensor type across all devices",
+                "query": """
+                    SELECT sensor_type,
+                           AVG(value) as avg_value,
+                           MIN(value) as min_value,
+                           MAX(value) as max_value,
+                           COUNT(*) as reading_count
+                    FROM sensor_readings
+                    WHERE timestamp > datetime('now', '-1 day')
+                    GROUP BY sensor_type
+                """
+            },
+            {
+                "name": "Online devices",
+                "description": "List all currently online devices with their status",
+                "query": """
+                    SELECT device_id, status, last_seen, firmware_version
+                    FROM devices
+                    WHERE status = 'online'
+                    ORDER BY last_seen DESC
+                """
+            },
+            {
+                "name": "Device errors",
+                "description": "Get recent errors from all devices",
+                "query": """
+                    SELECT device_id, error_type, message, severity, timestamp
+                    FROM device_errors
+                    WHERE timestamp > datetime('now', '-24 hours')
+                    ORDER BY severity DESC, timestamp DESC
+                    LIMIT 100
+                """
+            },
+            {
+                "name": "Sensor readings by time range",
+                "description": "Get sensor data within a specific time range",
+                "query": """
+                    SELECT device_id, sensor_type, value, unit, timestamp
+                    FROM sensor_readings
+                    WHERE timestamp BETWEEN datetime('now', '-6 hours') AND datetime('now')
+                    ORDER BY timestamp DESC
+                    LIMIT 500
+                """
+            }
+        ] 

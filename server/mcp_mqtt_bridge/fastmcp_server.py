@@ -141,6 +141,21 @@ class FastMCPServer:
         async def ping_device(device_id: str, timeout_seconds: int = 5) -> Dict[str, Any]:
             """Ping a device to check if it's responsive"""
             return await self._ping_device(device_id, timeout_seconds)
+
+        @self.mcp.tool()
+        async def query_database(query: str, max_rows: Optional[int] = None) -> Dict[str, Any]:
+            """Execute a custom SQL query on the sensor database (SELECT only)"""
+            return await self._query_database(query, max_rows)
+
+        @self.mcp.tool()
+        async def get_database_schema() -> Dict[str, Any]:
+            """Get database schema showing all tables and columns"""
+            return await self._get_database_schema()
+
+        @self.mcp.tool()
+        async def get_query_examples() -> List[Dict[str, str]]:
+            """Get example SQL queries for common use cases"""
+            return await self._get_query_examples()
     
     # Implementation methods (same logic as MCPServerManager)
     async def _list_devices(self, online_only: bool = False) -> List[Dict[str, Any]]:
@@ -378,6 +393,40 @@ class FastMCPServer:
         from .mcp_server import MCPServerManager
         temp_manager = MCPServerManager(self.device_manager, self.database_manager, self.bridge)
         return await temp_manager.ping_device(device_id, timeout_seconds)
+
+    async def _query_database(self, query: str, max_rows: Optional[int] = None) -> Dict[str, Any]:
+        """Execute a custom SQL query on the database"""
+        try:
+            result = self.database_manager.execute_query(query, max_rows=max_rows, validate=True)
+            return result
+        except Exception as e:
+            logger.error(f"Error executing database query: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "error_type": "execution_error"
+            }
+
+    async def _get_database_schema(self) -> Dict[str, Any]:
+        """Get database schema information"""
+        try:
+            schema = self.database_manager.get_database_schema()
+            return schema
+        except Exception as e:
+            logger.error(f"Error getting database schema: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _get_query_examples(self) -> List[Dict[str, str]]:
+        """Get example SQL queries"""
+        try:
+            examples = self.database_manager.get_query_examples()
+            return examples
+        except Exception as e:
+            logger.error(f"Error getting query examples: {e}")
+            return []
     
     async def handle_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Handle incoming tool calls - compatibility method for fallback"""
@@ -402,7 +451,8 @@ class FastMCPServer:
                         "list_devices", "read_sensor", "read_all_sensors",
                         "control_actuator", "get_device_info", "query_devices",
                         "get_alerts", "get_system_status", "get_device_metrics",
-                        "ping_device"
+                        "ping_device", "query_database", "get_database_schema",
+                        "get_query_examples"
                     ]
                 }
         except Exception as e:
