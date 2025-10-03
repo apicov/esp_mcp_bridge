@@ -117,9 +117,37 @@ class MCPHTTPServer:
                     },
                     "required": ["device_id"]
                 }
+            },
+            {
+                "name": "query_database",
+                "description": "Execute a custom SQL query on the sensor database (SELECT only, read-only)",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "SQL SELECT query to execute"},
+                        "max_rows": {"type": "integer", "description": "Maximum rows to return (default 10000)"}
+                    },
+                    "required": ["query"]
+                }
+            },
+            {
+                "name": "get_database_schema",
+                "description": "Get database schema showing all tables and columns",
+                "parameters": {
+                    "type": "object",
+                    "properties": {}
+                }
+            },
+            {
+                "name": "get_query_examples",
+                "description": "Get example SQL queries for common use cases",
+                "parameters": {
+                    "type": "object",
+                    "properties": {}
+                }
             }
         ]
-        
+
         return web.json_response({"tools": tools})
     
     async def call_tool(self, request):
